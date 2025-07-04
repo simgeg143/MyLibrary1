@@ -1,0 +1,287 @@
+﻿@page "/authors"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<h4>Add New Author</h4>
+
+<div class="input group mb-3">
+    <input type="text" class="form-control" placeholder="New Author Name" @bind="newAuthorName"/>
+    <button class="btn btn-success" @onclick="AddAuthor">Add</button>
+</div>
+
+<h4>Find Author by Id</h4>
+
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter author Id" @bind="searchAuthorId"/>
+    <button class="btn btn-info" @onclick="GetAuthorById">Search</button>
+</div>
+
+@if (foundAuthor != null)
+{
+    <div class="alert alert-secondary">
+        <p><strong>Id:</strong>@foundAuthor.AuthorId</p>
+        <p><strong>Name:</strong>@foundAuthor.AuthorName</p>
+    </div>
+}
+
+<h4>Update Author</h4>
+
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter author Id" @bind="updateAuthorId"/>
+    </div>
+    <div class="input groub mb-3">
+        <input type="text" class="form-control" placeholder="New Author Name" @bind="updateAuthorName"/>
+    </div>
+        <button class="btn btn-warning" @onclick="UpdateAuthor">Update</button>
+
+@if (!string.IsNullOrEmpty(updateMessage))
+{
+    <div class="alert alert-info mt-2">@updateMessage</div>
+}
+
+<h4>Delete Author</h4>
+
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter author Id" @bind="deleteAuthorId" />
+</div>
+<button class="btn btn-danger" @onclick="DeleteAuthor">Delete</button>
+
+@if (!string.IsNullOrEmpty(deleteMessage))
+{
+    <div class="alert alert-warning">@deleteMessage</div>
+}
+
+<h3>Authors</h3>
+
+<button class="btn btn-primary" @onclick="GetAllAuthors">Get</button>
+
+@if (isLoading)
+{
+    <p><em>Loading...</em></p>
+}
+else if (!isFirstLoad && authors is not null && authors.Count == 0)
+{
+    <p>No authors found.</p>
+}
+else if (authors == null)
+{
+    <p><em>Click "Get" to load authors.</em></p>
+}
+else
+{
+    <ul>
+        @foreach (var author in authors)
+        {
+            <li>@author.AuthorId-@author.AuthorName</li>
+        }
+    </ul>
+}
+
+
+@code {
+    private List<AuthorDto> authors;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/authors");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                authors = await response.Content.ReadFromJsonAsync<List<AuthorDto>>();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                Navigation.NavigateTo("/login");
+            }
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine("Error loading authors:" + ex.Message);
+        }
+    }
+    private bool isLoading = false;
+    private bool isFirstLoad = true;
+
+    private async Task GetAllAuthors()
+    {
+        isLoading = true;
+        isFirstLoad = false;
+
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/authors");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                authors = await response.Content.ReadFromJsonAsync<List<AuthorDto>>();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                Navigation.NavigateTo("/login");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error loading authors:" + ex.Message);
+        }
+        isLoading = false;
+    }
+
+
+
+    private string newAuthorName;
+
+    private async Task AddAuthor()
+    {
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+        var newAuthor = new AuthorDto { AuthorName = newAuthorName };
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7161/api/authors");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(newAuthor);
+
+        var response = await Http.SendAsync(request);
+
+        if (response.IsSuccessStatusCode)
+        {
+            newAuthorName = "";
+            await OnInitializedAsync();
+        }
+        else
+        {
+            Console.WriteLine("Author couldnot add.");
+        }
+    }
+    private int searchAuthorId;
+    private AuthorDto? foundAuthor;
+
+    private async Task GetAuthorById()
+    {
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+        if(string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://localhost:7161/api/authors/{searchAuthorId}");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+        var response = await Http.SendAsync(request);
+
+        if (response.IsSuccessStatusCode)
+        {
+            foundAuthor = await response.Content.ReadFromJsonAsync<AuthorDto>();
+        }
+        else
+        {
+            foundAuthor = null;
+            Console.WriteLine("Author not found.");
+        }
+    }
+
+    private int updateAuthorId;
+    private string updateAuthorName;
+    private string updateMessage;
+
+    private async Task UpdateAuthor()
+    {
+        updateMessage = "";
+
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+        var updateDto = new AuthorDto
+            {
+                AuthorId = updateAuthorId,
+                AuthorName = updateAuthorName,
+            };
+        var request = new HttpRequestMessage(HttpMethod.Put, $"https://localhost:7161/api/authors/{updateAuthorId}");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(updateDto);
+
+        var response = await Http.SendAsync(request);
+
+        if (response.IsSuccessStatusCode)
+        {
+            updateMessage = "Author updated successfully.";
+            await OnInitializedAsync();
+        }
+        else
+        {
+            updateMessage = "Update failed.";
+        }
+    }
+
+    private int deleteAuthorId;
+    private string deleteMessage;
+
+    private async Task DeleteAuthor()
+    {
+        deleteMessage = "";
+
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"https://localhost:7161/api/authors/{deleteAuthorId}");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+       
+        var response = await Http.SendAsync(request);
+
+        if (response.IsSuccessStatusCode)
+        {
+            deleteMessage = "Author deleted successfully.";
+            await OnInitializedAsync();
+        }
+        else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            deleteMessage = "Author not found.";
+        }
+        else
+        {
+            deleteMessage = "Delete failed.";
+        }
+    }
+
+    public class AuthorDto
+    {
+        public string AuthorName { get; set; }
+        public int AuthorId { get; set; }
+
+    }
+
+}

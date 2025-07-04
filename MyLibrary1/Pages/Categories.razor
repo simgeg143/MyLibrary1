@@ -1,0 +1,246 @@
+﻿@page "/categories"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<h4>Add New Category</h4>
+
+<div class=" input group mb-3">
+    <input type="text" class="form-control" placeholder="New Category Name" @bind="newCategoryName"/>
+</div>
+<button class="btn btn-success" @onclick="AddCategory">Add</button>
+
+<h4>Find Category by Id</h4>
+
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter Category Id" @bind="searchCategoryId"/>
+    <button class="btn btn-info" @onclick="GetCategoryById">Search</button>
+</div>
+
+@if(foundCategory != null)
+{
+    <div class="alert alert-secondary">
+        <p><strong>Id:</strong>@foundCategory.CategoryId</p>
+        <p><strong>Name:</strong>@foundCategory.CategoryName</p>
+    </div>
+}
+@if (!string.IsNullOrEmpty(getMessage))
+{
+    <div class="alert alert-info">@getMessage</div>
+}
+
+<h4>Update Category</h4>
+
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter Category Id" @bind="updateCategoryId"/>
+</div>
+<div class="input group mb-3">
+    <input type="text" class="form-control" placeholder="Enter Category Name" @bind?="update CategoryName"/>
+</div>
+<button class="btn btn-warning" @onclick="UpdateCategory">Update</button>
+
+@if(!string.IsNullOrEmpty(updateMessage))
+{
+    <div class="alert alert-info mt-2">@updateMessage</div>
+}
+
+<h4>Delete Category</h4>
+
+<div class=" input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter category Id" @bind="deleteCategoryId"/>
+</div>
+<button class=" btn btn-danger" @onclick="DeleteCategory">Delete</button>
+@if (!string.IsNullOrEmpty(deleteMessage))
+{
+    <div class="alert alert-warning">@deleteMessage</div>
+}
+
+<h3>Categories</h3>
+
+@if (categories == null)
+{
+    <p><em>Loading...</em></p>
+}
+else if(categories.Count == 0){
+    <p>No categories found.</p>
+}
+else
+{
+    <ul>
+        @foreach(var category in categories)
+        {
+            <li>@category.CategoryId-@category.CategoryName</li>
+        }
+    </ul>
+}
+
+@code {
+    private List<CategoryDto> categories;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/categories");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                categories = await response.Content.ReadFromJsonAsync<List<CategoryDto>>();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                Navigation.NavigateTo("/login");
+            }
+        }catch(Exception ex)
+        {
+            Console.WriteLine("Error loading categories:" + ex.Message);
+        }
+    }
+
+    private string newCategoryName;
+    private int searchCategoryId;
+
+    private async Task AddCategory()
+    {
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+        var newCategory = new CategoryDto
+            {
+                CategoryId = searchCategoryId,
+                CategoryName = newCategoryName,
+            };
+
+         var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7161/api/categories");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(newCategory);
+
+        var response = await Http.SendAsync(request);
+
+        if(response.IsSuccessStatusCode)
+        {
+            newCategoryName = "";
+            await OnInitializedAsync();
+        }
+        else
+        {
+            Console.WriteLine("Category couldnot add.");
+        }
+    }
+
+    private CategoryDto? foundCategory;
+    private string getMessage;
+
+    private async Task GetCategoryById()
+    {
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+        if(string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://localhost:7161/api/categories/{searchCategoryId}");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+        var response = await Http.SendAsync(request);
+        getMessage = "";
+        if (response.IsSuccessStatusCode)
+        {
+            foundCategory = await response.Content.ReadFromJsonAsync<CategoryDto>();
+        }
+        else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            getMessage = "Category not found.";
+        }
+        else
+        {
+            getMessage = "Error occured while fetching the category";
+        }
+    }
+    private int updateCategoryId;
+    private string updateCategoryName;
+   private string updateMessage;
+
+    private async Task UpdateCategory()
+    {
+        updateMessage = "";
+
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+        var updateDto = new CategoryDto
+        {
+            CategoryName = updateCategoryName,
+            CategoryId = updateCategoryId,
+        };
+        var request = new HttpRequestMessage(HttpMethod.Put, $"https://localhost:7161/api/cateories/{updateCategoryId}");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(updateDto);
+
+        var response = await Http.SendAsync(request);
+
+        if (response.IsSuccessStatusCode)
+        {
+            updateMessage = "Category updated successfully.";
+            await OnInitializedAsync();
+        }
+        else
+        {
+            updateMessage = "Update failed.";
+        }
+    }
+
+    private int deleteCategoryId;
+    private string deleteMessage;
+
+    private async Task DeleteCategory()
+    {
+        deleteMessage="";
+
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+        if(string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"https://localhost:7161/api/categories/{deleteCategoryId}");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+        var response = await Http.SendAsync(request);
+
+        if (response.IsSuccessStatusCode)
+        {
+            deleteMessage = "Category deleted successfully.";
+            await OnInitializedAsync();
+        }
+        else if(response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            deleteMessage = "Category not found.";
+        }
+        else
+        {
+            deleteMessage = "Delete failed.";
+        }
+    }
+
+    public class CategoryDto
+    {
+        public string CategoryName { get; set; }
+        public int CategoryId { get; set; }
+    }
+}

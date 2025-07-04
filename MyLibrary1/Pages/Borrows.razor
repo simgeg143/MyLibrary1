@@ -1,0 +1,68 @@
+﻿@page "/borrows"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<h3>Borrows</h3>
+
+@if (borrows == null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (borrows.Count == 0)
+{
+    <p>No borrows found.</p>
+}
+else
+{
+    <ul>
+    @foreach (var borrow in borrows)
+    {
+        <li>@borrow.BorrowId- Book: @borrow.BookId, Member: @borrow.MemberId, BorrowDate: @borrow.BorrowDate, ReturnDate: @borrow.ReturnDate</li>
+    }
+</ul>
+}
+
+@code {
+    private List<BorrowDto> borrows;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/borrows");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                borrows = await response.Content.ReadFromJsonAsync<List<BorrowDto>>();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                Navigation.NavigateTo("/login");
+            }
+        }catch(Exception ex)
+        {
+            Console.WriteLine("Error loading borrows:" + ex.Message);
+        }
+    }
+    public class BorrowDto
+    {
+        public int BorrowId { get; set; }
+        public int BookId { get; set; }
+        public int MemberId { get; set; }
+        public DateTime BorrowDate { get; set; }
+        public DateTime ReturnDate { get; set; }
+
+    }
+
+}

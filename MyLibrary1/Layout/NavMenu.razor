@@ -1,0 +1,100 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@using System.Security.Claims
+@using MyLibrary1.Providers
+@inject IJSRuntime JS
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">MyLibrary1</a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+        @if (user?.Identity?.IsAuthenticated == true)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link">Hello, @user.Identity.Name</NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="btn btn-link nav-link" @onclick="Logout">Log out</NavLink>
+            </div>
+        }
+        else
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="login" Match="NavLinkMatch.All">
+                    Login
+                </NavLink>
+            </div>
+        }
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="authors">
+               <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Authors
+            </NavLink>
+        </div
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="books">
+              Books
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="borrows">
+                Borrows
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="categories">
+                Categories
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="members">
+                Members
+            </NavLink>
+        </div>
+  </nav>
+  </div>
+@code {
+    private AuthenticationState authState;
+    private ClaimsPrincipal user;
+    private bool collapseNavMenu = true;
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthStateTask { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        authState = await AuthProvider.GetAuthenticationStateAsync();
+        user = authState.User;
+    }
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+
+    private async Task Logout()
+    {
+        await JS.InvokeVoidAsync("localStorage.removeItem", "authToken");
+
+        if (AuthProvider is CustomAuthStateProvider customProvider)
+        {
+            customProvider.NotifyUserLogout();
+        }
+
+        Navigation.NavigateTo("/", forceLoad: true);
+    }
+}

@@ -1,0 +1,286 @@
+﻿@page "/books"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<h4>Add New Book</h4>
+
+<div class="input group mb-3">
+    <input type="text" class="form-control" placeholder="New Title" @bind="newTitle"/>
+</div>
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter Author Id" @bind="enterAuthorId"/>
+</div>
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter Category Id" @bind="enterCategoryId"/>
+</div>
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter Stock" @bind="enterStock"/>
+</div>
+<button class="btn btn-success" @onclick="AddBook">Add</button>
+
+<h4>Find Book by Id</h4>
+
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter Book Id" @bind="searchBookId"/>
+    <button class="btn btn-info" @onclick="GetBookById">Search</button>
+</div>
+@if (foundBook != null)
+{
+    <div class="alert alert-secondary">
+        <p><strong>Id:</strong>@foundBook.BookId</p>
+        <p><strong>Name:</strong>@foundBook.Title</p>
+        <p><strong>Author Id:</strong>@foundBook.AuthorId</p>
+        <p><strong>Category Id:</strong>@foundBook.CategoryId</p>
+        <p><strong>Stock:</strong>@foundBook.Stock</p>
+    </div>
+}
+@if (!string.IsNullOrEmpty(getMessage))
+{
+    <div class="alert alert-info">@getMessage</div>
+}
+
+<h4>Update Book</h4>
+
+<div class="input group  mb-3">
+    <input type="number" class="form-control" placeholder="Enter Book Id" @bind="updateBookId"/>
+</div>
+<div class=" input group  mb-3">
+    <input type="text" class="form-control" placeholder="Enter Title" @bind="updateTitle"/>
+</div>
+<div class="input group  mb-3">
+    <input type="number" class="form-control" placeholder="Enter Author Id" @bind="updateAuthorId" />
+</div>
+<div class="input group  mb-3">
+    <input type="number" class="form-control" placeholder="Enter Category Id" @bind="updateCategoryId" />
+</div>
+<div class="input group  mb-3">
+    <input type="number" class="form-control" placeholder="Enter Stock" @bind="updateStock" />
+</div>
+<button class="btn btn-warning" @onclick="UpdateBook">Update</button>
+
+@if (!string.IsNullOrEmpty(updateMessage))
+{
+    <div class="alert alert-info mt-2">@updateMessage</div>
+}
+
+<h4>Delete Book</h4>
+
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter book Id" @bind="deleteBookId" />
+</div>
+<button class="btn btn-danger" @onclick="DeleteBook">Delete</button>
+
+@if (!string.IsNullOrEmpty(deleteMessage))
+{
+    <div class="alert alert-warning">@deleteMessage</div>
+}
+
+
+<h3>Books</h3>
+
+@if (books == null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (books.Count == 0)
+{
+    <p>No books found.</p>
+}
+else
+{
+    <ul>
+        @foreach (var book in books)
+        {
+            <li>@book.BookId-@book.Title, Author: @book.AuthorId, Category: @book.CategoryId, Stock: @book.Stock</li>
+        }
+    </ul>
+}
+
+@code 
+{
+    private List<BookDto> books;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/books");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                books = await response.Content.ReadFromJsonAsync<List<BookDto>>();    
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                Navigation.NavigateTo("/login");
+            }
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine("Error loading books:" + ex.Message);
+        }
+    }
+    private string newTitle;
+    private int enterAuthorId;
+    private int enterCategoryId;
+    private int enterStock;
+
+    private async Task AddBook()
+    {
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+        var newBook = new BookDto 
+        { 
+            Title = newTitle,
+            AuthorId = enterAuthorId,
+            CategoryId = enterCategoryId,
+            Stock = enterStock,
+        };
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7161/api/books");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(newBook);
+
+        var response = await Http.SendAsync(request);
+
+        if(response.IsSuccessStatusCode)
+        {
+            newTitle = "";
+            await OnInitializedAsync();
+        }
+        else
+        {
+            Console.WriteLine("Book couldnot add.");
+        }
+    }
+
+    private int searchBookId;
+    private BookDto? foundBook;
+    private string getMessage;
+
+    private async Task GetBookById()
+    {
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+        if(string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://localhost:7161/api/books/{searchBookId}");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+        var response = await Http.SendAsync(request);
+        getMessage = "";
+        if (response.IsSuccessStatusCode)
+        {
+            foundBook = await response.Content.ReadFromJsonAsync<BookDto>();
+        }
+        else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            getMessage = "Book not found.";
+        }
+        else
+        {
+            getMessage = "Error occured while fetching the book";
+        }
+    }
+
+    private int updateBookId;
+    private string updateTitle;
+    private int updateAuthorId;
+    private int updateCategoryId;
+    private int updateStock;
+    private string updateMessage;
+
+    private async Task UpdateBook()
+    {
+        updateMessage = "";
+
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+        var updateDto = new BookDto
+        {
+            BookId = updateBookId,
+            Title = updateTitle,
+            AuthorId = updateAuthorId,
+            CategoryId = updateCategoryId,
+            Stock = updateStock,
+        };
+        var request = new HttpRequestMessage(HttpMethod.Put, $"https://localhost:7161/api/books/{updateBookId}");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(updateDto);
+
+        var response = await Http.SendAsync(request);
+
+        if (response.IsSuccessStatusCode)
+        {
+            updateMessage = "Author updated successfully.";
+            await OnInitializedAsync();
+        }
+        else
+        {
+            updateMessage = "Update failed.";
+        }
+    }
+
+    private int deleteBookId;
+    private string deleteMessage;
+
+    private async Task DeleteBook()
+    {
+        deleteMessage="";
+
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+        if(string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"https://localhost:7161/api/books/{deleteBookId}");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+        var response = await Http.SendAsync(request);
+
+        if (response.IsSuccessStatusCode)
+        {
+            deleteMessage = "Book deleted successfully.";
+            await OnInitializedAsync();
+        }
+        else if(response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            deleteMessage = "Author not found.";
+        }
+        else
+        {
+            deleteMessage = "Delete failed.";
+        }
+    }
+
+
+    public class BookDto
+    {
+        public string Title { get; set; }
+        public int AuthorId { get; set; }
+        public int CategoryId { get; set; }
+        public int Stock { get; set; }
+        public int BookId { get; set; }
+    }
+}

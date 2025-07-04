@@ -1,0 +1,65 @@
+﻿@page "/members"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<h3>Members</h3>
+
+@if (members == null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (members.Count == 0)
+{
+    <p>No members found.</p>
+}
+else
+{
+    <ul>
+        @foreach(var member in members)
+        {<li>@member.MemberId-@member.MemberName, Email: @member.Email, Number; @member.PhoneNumber, MembershipDate: @member.MembershipDate</li>}
+    </ul>
+}
+
+@code {
+    private List<MemberDto> members;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/members");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                members = await response.Content.ReadFromJsonAsync<List<MemberDto>>();
+            }
+            else if(response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                Navigation.NavigateTo("/login");
+            }
+        }catch(Exception ex)
+        {
+            Console.WriteLine("Error loading members:" + ex.Message);
+        }
+    }
+    public class MemberDto
+    {
+        public int MemberId { get; set; }
+        public string MemberName { get; set; }
+        public string Email { get; set; }
+        public int PhoneNumber { get; set; }
+        public DateTime MembershipDate { get; set; }
+    }
+
+}
