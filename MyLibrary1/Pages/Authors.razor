@@ -3,17 +3,10 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
-<h4>Add New Author</h4>
-
-<div class="input group mb-3">
-    <input type="text" class="form-control" placeholder="New Author Name" @bind="newAuthorName"/>
-    <button class="btn btn-success" @onclick="AddAuthor">Add</button>
-</div>
-
 <h4>Find Author by Id</h4>
 
 <div class="input group mb-3">
-    <input type="number" class="form-control" placeholder="Enter author Id" @bind="searchAuthorId"/>
+    <input type="number" class="form-control" placeholder="Enter author Id" @bind="searchAuthorId" />
     <button class="btn btn-info" @onclick="GetAuthorById">Search</button>
 </div>
 
@@ -24,6 +17,13 @@
         <p><strong>Name:</strong>@foundAuthor.AuthorName</p>
     </div>
 }
+
+<h4>Add New Author</h4>
+
+<div class="input group mb-3">
+    <input type="text" class="form-control" placeholder="New Author Name" @bind="newAuthorName"/>
+    <button class="btn btn-success" @onclick="AddAuthor">Add</button>
+</div>
 
 <h4>Update Author</h4>
 
@@ -54,19 +54,16 @@
 
 <h3>Authors</h3>
 
-<button class="btn btn-primary" @onclick="GetAllAuthors">Get</button>
+<button class="btn btn-primary" @onclick="ToggleAuthors">@(showAuthors ? "Hide" : "Get")</button>
 
-@if (isLoading)
+@if(showAuthors){
+@if (authors == null)
 {
-    <p><em>Loading...</em></p>
+    <p><em>Press the button</em></p>
 }
-else if (!isFirstLoad && authors is not null && authors.Count == 0)
+else if (authors.Count == 0)
 {
     <p>No authors found.</p>
-}
-else if (authors == null)
-{
-    <p><em>Click "Get" to load authors.</em></p>
 }
 else
 {
@@ -77,12 +74,35 @@ else
         }
     </ul>
 }
+}
 
 
 @code {
+    protected override async Task OnInitializedAsync()
+    {
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+    }
+    private bool showAuthors = false;
     private List<AuthorDto> authors;
 
-    protected override async Task OnInitializedAsync()
+    private async Task ToggleAuthors()
+    {
+        if(!showAuthors)
+        {
+            await GetAuthors();
+            showAuthors = true;
+        }
+        else
+        {
+            showAuthors = false;
+        }
+    }
+    private async Task GetAuthors()
     {
         try
         {
@@ -112,47 +132,8 @@ else
             Console.WriteLine("Error loading authors:" + ex.Message);
         }
     }
-    private bool isLoading = false;
-    private bool isFirstLoad = true;
-
-    private async Task GetAllAuthors()
-    {
-        isLoading = true;
-        isFirstLoad = false;
-
-        try
-        {
-            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
-
-            if (string.IsNullOrWhiteSpace(token))
-            {
-                Navigation.NavigateTo("/login");
-                return;
-            }
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/authors");
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-
-            var response = await Http.SendAsync(request);
-
-            if (response.IsSuccessStatusCode)
-            {
-                authors = await response.Content.ReadFromJsonAsync<List<AuthorDto>>();
-            }
-            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-            {
-                Navigation.NavigateTo("/login");
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Error loading authors:" + ex.Message);
-        }
-        isLoading = false;
-    }
-
-
-
     private string newAuthorName;
+    private string addMessage;
 
     private async Task AddAuthor()
     {
@@ -168,15 +149,15 @@ else
 
         if (response.IsSuccessStatusCode)
         {
-            newAuthorName = "";
-            await OnInitializedAsync();
+            addMessage = "Successfully added";
+            await GetAuthors();
         }
         else
         {
             Console.WriteLine("Author couldnot add.");
         }
     }
-    private int searchAuthorId;
+    private int? searchAuthorId;
     private AuthorDto? foundAuthor;
 
     private async Task GetAuthorById()
@@ -205,7 +186,7 @@ else
         }
     }
 
-    private int updateAuthorId;
+    private int? updateAuthorId;
     private string updateAuthorName;
     private string updateMessage;
 
@@ -222,7 +203,7 @@ else
         }
         var updateDto = new AuthorDto
             {
-                AuthorId = updateAuthorId,
+                AuthorId = updateAuthorId.Value,
                 AuthorName = updateAuthorName,
             };
         var request = new HttpRequestMessage(HttpMethod.Put, $"https://localhost:7161/api/authors/{updateAuthorId}");
@@ -234,7 +215,7 @@ else
         if (response.IsSuccessStatusCode)
         {
             updateMessage = "Author updated successfully.";
-            await OnInitializedAsync();
+            await GetAuthors();
         }
         else
         {
@@ -242,7 +223,7 @@ else
         }
     }
 
-    private int deleteAuthorId;
+    private int? deleteAuthorId;
     private string deleteMessage;
 
     private async Task DeleteAuthor()
@@ -265,7 +246,7 @@ else
         if (response.IsSuccessStatusCode)
         {
             deleteMessage = "Author deleted successfully.";
-            await OnInitializedAsync();
+            await GetAuthors();
         }
         else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
         {

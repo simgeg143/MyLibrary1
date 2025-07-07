@@ -3,26 +3,10 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
-<h4>Add New Book</h4>
-
-<div class="input group mb-3">
-    <input type="text" class="form-control" placeholder="New Title" @bind="newTitle"/>
-</div>
-<div class="input group mb-3">
-    <input type="number" class="form-control" placeholder="Enter Author Id" @bind="enterAuthorId"/>
-</div>
-<div class="input group mb-3">
-    <input type="number" class="form-control" placeholder="Enter Category Id" @bind="enterCategoryId"/>
-</div>
-<div class="input group mb-3">
-    <input type="number" class="form-control" placeholder="Enter Stock" @bind="enterStock"/>
-</div>
-<button class="btn btn-success" @onclick="AddBook">Add</button>
-
 <h4>Find Book by Id</h4>
 
 <div class="input group mb-3">
-    <input type="number" class="form-control" placeholder="Enter Book Id" @bind="searchBookId"/>
+    <input type="number" class="form-control" placeholder="Enter Book Id" @bind="searchBookId" />
     <button class="btn btn-info" @onclick="GetBookById">Search</button>
 </div>
 @if (foundBook != null)
@@ -39,6 +23,22 @@
 {
     <div class="alert alert-info">@getMessage</div>
 }
+
+<h4>Add New Book</h4>
+
+<div class="input group mb-3">
+    <input type="text" class="form-control" placeholder="New Title" @bind="newTitle"/>
+</div>
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter Author Id" @bind="enterAuthorId"/>
+</div>
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter Category Id" @bind="enterCategoryId"/>
+</div>
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter Stock" @bind="enterStock"/>
+</div>
+<button class="btn btn-success" @onclick="AddBook">Add</button>
 
 <h4>Update Book</h4>
 
@@ -76,12 +76,13 @@
     <div class="alert alert-warning">@deleteMessage</div>
 }
 
-
 <h3>Books</h3>
 
+<button class="btn btn-primary" @onclick="ToggleBooks">@(showBooks ? "Hide" : "Get")</button>
+@if(showBooks){
 @if (books == null)
 {
-    <p><em>Loading...</em></p>
+    <p><em>Press the button</em></p>
 }
 else if (books.Count == 0)
 {
@@ -96,12 +97,36 @@ else
         }
     </ul>
 }
+}
 
 @code 
 {
-    private List<BookDto> books;
-
     protected override async Task OnInitializedAsync()
+    {
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+    }
+
+    private List<BookDto> books;
+    private bool showBooks = false;
+
+    private async Task ToggleBooks()
+    {
+        if(!showBooks)
+        {
+            await GetBooks();
+            showBooks = true;
+        }
+        else
+        {
+            showBooks = false;
+        }
+    }
+    private async Task GetBooks()
     {
         try
         {
@@ -132,9 +157,9 @@ else
         }
     }
     private string newTitle;
-    private int enterAuthorId;
-    private int enterCategoryId;
-    private int enterStock;
+    private int? enterAuthorId;
+    private int? enterCategoryId;
+    private int? enterStock;
 
     private async Task AddBook()
     {
@@ -143,9 +168,9 @@ else
         var newBook = new BookDto 
         { 
             Title = newTitle,
-            AuthorId = enterAuthorId,
-            CategoryId = enterCategoryId,
-            Stock = enterStock,
+            AuthorId = enterAuthorId.Value,
+            CategoryId = enterCategoryId.Value,
+            Stock = enterStock.Value,
         };
 
         var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7161/api/books");
@@ -157,7 +182,7 @@ else
         if(response.IsSuccessStatusCode)
         {
             newTitle = "";
-            await OnInitializedAsync();
+            await GetBooks();
         }
         else
         {
@@ -165,7 +190,7 @@ else
         }
     }
 
-    private int searchBookId;
+    private int? searchBookId;
     private BookDto? foundBook;
     private string getMessage;
 
@@ -197,11 +222,11 @@ else
         }
     }
 
-    private int updateBookId;
+    private int? updateBookId;
     private string updateTitle;
-    private int updateAuthorId;
-    private int updateCategoryId;
-    private int updateStock;
+    private int? updateAuthorId;
+    private int? updateCategoryId;
+    private int? updateStock;
     private string updateMessage;
 
     private async Task UpdateBook()
@@ -217,11 +242,11 @@ else
         }
         var updateDto = new BookDto
         {
-            BookId = updateBookId,
+            BookId = updateBookId.Value,
             Title = updateTitle,
-            AuthorId = updateAuthorId,
-            CategoryId = updateCategoryId,
-            Stock = updateStock,
+            AuthorId = updateAuthorId.Value,
+            CategoryId = updateCategoryId.Value,
+            Stock = updateStock.Value,
         };
         var request = new HttpRequestMessage(HttpMethod.Put, $"https://localhost:7161/api/books/{updateBookId}");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
@@ -231,8 +256,8 @@ else
 
         if (response.IsSuccessStatusCode)
         {
-            updateMessage = "Author updated successfully.";
-            await OnInitializedAsync();
+            updateMessage = "Book updated successfully.";
+            await GetBooks();
         }
         else
         {
@@ -240,7 +265,7 @@ else
         }
     }
 
-    private int deleteBookId;
+    private int? deleteBookId;
     private string deleteMessage;
 
     private async Task DeleteBook()
@@ -262,11 +287,11 @@ else
         if (response.IsSuccessStatusCode)
         {
             deleteMessage = "Book deleted successfully.";
-            await OnInitializedAsync();
+            await GetBooks();
         }
         else if(response.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
-            deleteMessage = "Author not found.";
+            deleteMessage = "Book not found.";
         }
         else
         {

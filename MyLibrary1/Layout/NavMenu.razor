@@ -19,48 +19,62 @@
         @if (user?.Identity?.IsAuthenticated == true)
         {
             <div class="nav-item px-3">
-                <NavLink class="nav-link">Hello, @user.Identity.Name</NavLink>
+                <NavLink class="nav-link d-flex align-items-center gap-2" href="" Match="NavLinkMatch.All">
+                    <i class="fa-solid fa-user fa-2x"aria-hidden ="true"></i>
+                    <span style="font-size:1.1rem;"> Hello, @user.Identity.Name</span>
+                    </NavLink>
             </div>
             <div class="nav-item px-3">
-                <NavLink class="btn btn-link nav-link" @onclick="Logout">Log out</NavLink>
+                <NavLink class="btn btn-link nav-link d-flex align-items-center gap-2 " @onclick="Logout" Match="NavLinkMatch.All">
+                    <i class="fa-solid fa-right-from-bracket fa-2x" aria-hidden = "true"></i>
+                    <span style="font-size:1.1rem;">Log out</span>
+                    </NavLink>
             </div>
         }
         else
         {
             <div class="nav-item px-3">
-                <NavLink class="nav-link" href="login" Match="NavLinkMatch.All">
-                    Login
+                <NavLink class="nav-link d-flex align-items-center gap-2 " href="login" Match="NavLinkMatch.All">
+                    <i class="fa-solid fa-circle-user fa-2x"aria-hidden="true"></i>  
+                    <span style="font-size:1.1rem;">Login</span>
                 </NavLink>
             </div>
         }
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+            <NavLink class="nav-link d-flex align-items-center gap-2 " href="" Match="NavLinkMatch.All">
+                <i class="fa-solid fa-house fa-2x" aria-hidden="true"></i> 
+                <span style="font-size:1.1rem;">Home</span>
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="authors">
-               <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Authors
+            <NavLink class="nav-link d-flex align-items-center gap-2" href="authors" Match="NavLinkMatch.All">
+               <i class="fa-solid fa-pen-nib fa-2x" aria-hidden="true"></i> 
+               <span style="font-size:1.1rem;">Authors</span>
             </NavLink>
         </div
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="books">
-              Books
+            <NavLink class="nav-link d-flex align-items-center gap-2" href="/books" Match="NavLinkMatch.All">
+              <i class="fa-solid fa-book fa-2x"></i> 
+              <span style="font-size:1.1rem;">Books</span>
+           </NavLink>
+
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link d-flex align-items-center gap-2" href="borrows" Match="NavLinkMatch.All">
+               <i class="fa-solid fa-bars fa-2x"></i>
+               <span style="font-size:1.1rem;">Borrows</span>
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="borrows">
-                Borrows
+            <NavLink class="nav-link d-flex align-items-center gap-2" href="categories" Match="NavLinkMatch.All">
+               <i class="fa-solid fa-folder-open fa-2x"></i>
+               <span style="font-size:1.1rem;">Categories</span>
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="categories">
-                Categories
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="members">
-                Members
+            <NavLink class="nav-link d-flex align-items-center gap-2" href="members" Match="NavLinkMatch.All">
+               <i class="fa-solid fa-people-pulling fa-2x"></i>
+               <span style="font-size:1.1rem;">Members</span>
             </NavLink>
         </div>
   </nav>

@@ -3,11 +3,90 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
+<h4>Find Borrow By Id</h4>
+
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter Borrow Id" @bind="searchBorrowId"/>
+    <button class="btn btn-info" @onclick="GetBorrowById">Search</button>
+</div>
+@if (foundBorrow != null)
+{
+    <div class="alert alert-secondary">
+        <p><strong>Id:</strong>@foundBorrow.BorrowId</p>
+        <p><strong>Book Id:</strong>@foundBorrow.BookId</p>
+        <p><strong>Member Id:</strong>@foundBorrow.MemberId</p>
+        <p><strong>Borrow Date</strong>@foundBorrow.BorrowDate</p>
+        <p><strong>Return Date:</strong>@foundBorrow.ReturnDate</p>
+    </div>
+}
+@if(!string.IsNullOrEmpty(getMessage))
+{
+    <div class="alert alert-info">@getMessage</div>
+}
+
+<h4> Add New Borrow</h4>
+
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter Book Id" @bind="newBookId" />
+</div>
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter Member Id" @bind="newMemberId" />
+</div>
+<div class="input group mb-3">
+    <label for="newBorrowDate" class="form-label">Borrow Date</label>
+    <input type="datetime-local" class="form-control" placeholder="Enter Borrow Date" @bind="newBorrowDate" />
+</div>
+<div class="input group mb-3">
+    <label for="newReturnDate" class="form-label">Return Date</label>
+    <input type="datetime-local" class="form-control" placeholder="Enter Return Date" @bind="newReturnDate" />
+</div>
+<button class="btn btn-success" @onclick="AddBorrow">Add</button>
+
+<h4>Update Borrow</h4>
+
+<div class="input group  mb-3">
+    <input type="number" class="form-control" placeholder="Enter Borrow Id" @bind="updateBorrowId" />
+</div>
+<div class=" input group  mb-3">
+    <input type="number" class="form-control" placeholder="Enter Book Id" @bind="updateBookId" />
+</div>
+<div class="input group  mb-3">
+    <input type="number" class="form-control" placeholder="Enter Member Id" @bind="updateMemberId" />
+</div>
+<div class="input group  mb-3">
+    <label for="updateBorrowDate" class="form-label">Borrow Date</label>
+    <input type="datetime-local" class="form-control" placeholder="Enter Borrow Date" @bind="updateBorrowDate" />
+</div>
+<div class="input group  mb-3">
+    <label for="updateReturnDate" class="form-label">Return Date</label>
+    <input type="datetime-local" class="form-control" placeholder="Enter ReturnDate" @bind="updateReturnDate" />
+</div>
+<button class="btn btn-warning" @onclick="UpdateBorrow">Update</button>
+
+@if (!string.IsNullOrEmpty(updateMessage))
+{
+    <div class="alert alert-info mt-2">@updateMessage</div>
+}
+
+<h4>Delete Borrow</h4>
+
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter Borrow Id" @bind="deleteBorrowId" />
+</div>
+<button class="btn btn-danger" @onclick="DeleteBorrow">Delete</button>
+
+@if (!string.IsNullOrEmpty(deleteMessage))
+{
+    <div class="alert alert-warning">@deleteMessage</div>
+}
+
 <h3>Borrows</h3>
 
+<button class="btn btn-primary" @onclick="ToggleBorrows">@(showBorrows ? "Hide" : "Get")</button>
+@if(showBorrows){
 @if (borrows == null)
 {
-    <p><em>Loading...</em></p>
+    <p><em>Press the button</em></p>
 }
 else if (borrows.Count == 0)
 {
@@ -22,11 +101,35 @@ else
     }
 </ul>
 }
+}
 
 @code {
-    private List<BorrowDto> borrows;
-
     protected override async Task OnInitializedAsync()
+    {
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+    }
+
+    private List<BorrowDto> borrows;
+    private bool showBorrows = false;
+
+    private async Task ToggleBorrows()
+    {
+        if(!showBorrows)
+        {
+            await GetBorrows();
+            showBorrows = true;
+        }
+        else
+        {
+            showBorrows = false;
+        }
+    }
+    private async Task GetBorrows()
     {
         try
         {
@@ -55,6 +158,145 @@ else
             Console.WriteLine("Error loading borrows:" + ex.Message);
         }
     }
+    private int? newBookId;
+    private int? newMemberId;
+    private DateTime? newBorrowDate;
+    private DateTime? newReturnDate;
+
+    private async Task AddBorrow()
+    {
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+        var newBorrow = new BorrowDto
+            {
+                BookId = newBookId.Value,
+                MemberId = newMemberId.Value,
+                BorrowDate = newBorrowDate.Value,
+                ReturnDate = newReturnDate.Value,
+            };
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7161/api/borrows");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(newBorrow);
+
+        var response = await Http.SendAsync(request);
+
+        if (response.IsSuccessStatusCode)
+        {
+            await GetBorrows();
+        }
+        else
+        {
+            Console.WriteLine("Borrow couldnot add.");
+        }
+    }
+
+    private int? searchBorrowId;
+    private BorrowDto? foundBorrow;
+    private string getMessage;
+
+    private async Task GetBorrowById()
+    {
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://localhost:7161/api/borrows/{searchBorrowId}");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+        var response = await Http.SendAsync(request);
+        getMessage = "";
+        if (response.IsSuccessStatusCode)
+        {
+            foundBorrow = await response.Content.ReadFromJsonAsync<BorrowDto>();
+        }
+        else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            getMessage = "Borrow not found.";
+        }
+        else
+        {
+            getMessage = "Error occured while fetching the borrow";
+        }
+    }
+    private int? updateBorrowId;
+    private int? updateBookId;
+    private int? updateMemberId;
+    private DateTime? updateBorrowDate;
+    private DateTime? updateReturnDate;
+    private string updateMessage;
+
+    private async Task UpdateBorrow()
+    {
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+        var updateDto = new BorrowDto
+        {
+            BookId = updateBookId.Value,
+            MemberId = updateMemberId.Value,
+            BorrowDate = updateBorrowDate.Value,
+            ReturnDate = updateReturnDate.Value,
+        };
+        var request = new HttpRequestMessage(HttpMethod.Put, $"https://localhost:7161/api/borrows/{updateBorrowId}");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(updateDto);
+
+        var response = await Http.SendAsync(request);
+
+        if (response.IsSuccessStatusCode)
+        {
+            updateMessage = "Borrow updated successfully.";
+            await GetBorrows();
+        }
+        else
+        {
+            updateMessage = "Update failed.";
+        }
+
+    }
+
+    private int? deleteBorrowId;
+    private string deleteMessage;
+
+    private async Task DeleteBorrow()
+    {
+        deleteMessage = "";
+
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"https://localhost:7161/api/borrows/{deleteBorrowId}");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+        var response = await Http.SendAsync(request);
+
+        if (response.IsSuccessStatusCode)
+        {
+            deleteMessage = "Borrow deleted successfully.";
+            await GetBorrows();
+        }
+        else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            deleteMessage = "Borrow not found.";
+        }
+        else
+        {
+            deleteMessage = "Delete failed.";
+        }
+    }
+
     public class BorrowDto
     {
         public int BorrowId { get; set; }

@@ -3,21 +3,14 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
-<h4>Add New Category</h4>
-
-<div class=" input group mb-3">
-    <input type="text" class="form-control" placeholder="New Category Name" @bind="newCategoryName"/>
-</div>
-<button class="btn btn-success" @onclick="AddCategory">Add</button>
-
 <h4>Find Category by Id</h4>
 
 <div class="input group mb-3">
-    <input type="number" class="form-control" placeholder="Enter Category Id" @bind="searchCategoryId"/>
+    <input type="number" class="form-control" placeholder="Enter Category Id" @bind="searchCategoryId" />
     <button class="btn btn-info" @onclick="GetCategoryById">Search</button>
 </div>
 
-@if(foundCategory != null)
+@if (foundCategory != null)
 {
     <div class="alert alert-secondary">
         <p><strong>Id:</strong>@foundCategory.CategoryId</p>
@@ -28,6 +21,13 @@
 {
     <div class="alert alert-info">@getMessage</div>
 }
+
+<h4>Add New Category</h4>
+
+<div class=" input group mb-3">
+    <input type="text" class="form-control" placeholder="New Category Name" @bind="newCategoryName"/>
+</div>
+<button class="btn btn-success" @onclick="AddCategory">Add</button>
 
 <h4>Update Category</h4>
 
@@ -57,9 +57,12 @@
 
 <h3>Categories</h3>
 
+<button class="btn btn-primary" @onclick="ToggleCategories">@(showCategories ? "Hide" : "Get")</button>
+@if (showCategories)
+{
 @if (categories == null)
 {
-    <p><em>Loading...</em></p>
+    <p><em>Press the button</em></p>
 }
 else if(categories.Count == 0){
     <p>No categories found.</p>
@@ -73,11 +76,36 @@ else
         }
     </ul>
 }
+}
 
 @code {
-    private List<CategoryDto> categories;
-
     protected override async Task OnInitializedAsync()
+    {
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+    }
+    private List<CategoryDto> categories;
+    private bool showCategories = false;
+
+    private async Task ToggleCategories()
+    {
+        if (!showCategories)
+        {
+            await GetCategories();
+            showCategories = true;
+        }
+        else
+        {
+            showCategories = false;
+        }
+    }
+
+    private async Task GetCategories()
     {
         try
         {
@@ -88,27 +116,27 @@ else
                 Navigation.NavigateTo("/login");
                 return;
             }
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/categories");
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/categories");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
-            var response = await Http.SendAsync(request);
+        var response = await Http.SendAsync(request);
 
-            if (response.IsSuccessStatusCode)
-            {
-                categories = await response.Content.ReadFromJsonAsync<List<CategoryDto>>();
-            }
-            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-            {
-                Navigation.NavigateTo("/login");
-            }
-        }catch(Exception ex)
+        if (response.IsSuccessStatusCode)
+        {
+            categories = await response.Content.ReadFromJsonAsync<List<CategoryDto>>();
+        }
+        else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            Navigation.NavigateTo("/login");
+        }
+    }catch(Exception ex)
         {
             Console.WriteLine("Error loading categories:" + ex.Message);
         }
     }
 
     private string newCategoryName;
-    private int searchCategoryId;
+    private int? searchCategoryId;
 
     private async Task AddCategory()
     {
@@ -116,7 +144,7 @@ else
 
         var newCategory = new CategoryDto
             {
-                CategoryId = searchCategoryId,
+                CategoryId = searchCategoryId.Value,
                 CategoryName = newCategoryName,
             };
 
@@ -167,9 +195,9 @@ else
             getMessage = "Error occured while fetching the category";
         }
     }
-    private int updateCategoryId;
+    private int? updateCategoryId;
     private string updateCategoryName;
-   private string updateMessage;
+    private string updateMessage;
 
     private async Task UpdateCategory()
     {
@@ -185,7 +213,7 @@ else
         var updateDto = new CategoryDto
         {
             CategoryName = updateCategoryName,
-            CategoryId = updateCategoryId,
+            CategoryId = updateCategoryId.Value,
         };
         var request = new HttpRequestMessage(HttpMethod.Put, $"https://localhost:7161/api/cateories/{updateCategoryId}");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
@@ -204,7 +232,7 @@ else
         }
     }
 
-    private int deleteCategoryId;
+    private int? deleteCategoryId;
     private string deleteMessage;
 
     private async Task DeleteCategory()

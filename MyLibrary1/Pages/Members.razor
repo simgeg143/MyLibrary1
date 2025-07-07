@@ -3,11 +3,90 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
-<h3>Members</h3>
+<h4>Find Member by Id</h4>
+
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter Member Id" @bind="searchMemberId" />
+    <button class="btn btn-info" @onclick="GetMemberById">Search</button>
+</div>
+
+@if (foundMember != null)
+{
+    <div class="alert alert-secondary">
+        <p><strong>Id:</strong>@foundMember.MemberId</p>
+        <p><strong>Name:</strong>@foundMember.MemberName</p>
+        <p><strong>Email:</strong>@foundMember.Email</p>
+        <p><strong>Phone Number:</strong>@foundMember.PhoneNumber</p>
+        <p><strong>Membership Date:</strong>@foundMember.MembershipDate</p>
+    </div>
+}
+@if (!string.IsNullOrEmpty(getMessage))
+{
+    <div class="alert alert-info">@getMessage</div>
+}
+
+<h4>Add New Member</h4>
+
+<div class="input group mb-3">
+    <input type="text" class="form-control" placeholder="New Member Name" @bind="newMemberName"/>
+</div>
+<div class="input group mb-3">
+    <input type="text" class="form-control" placeholder="New Member Email" @bind="newMemberEmail" />
+</div>
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="New Member Number" @bind="newMemberNumber" />
+</div>
+<div class="input group mb-3">
+    <label for="newMembershipDate" class="form-label">Membership Date</label>
+    <input type="datetime-local" class="form-control" placeholder="New Membership Date" @bind="newMembershipDate" />
+</div>
+<button class="btn btn-success" @onclick="AddMember">Add</button>
+
+<h4>Update Member</h4>
+
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter Member Id" @bind="updateMemberId"/>
+</div>
+<div class="input group mb-3">
+    <input type="text" class="form-control" placeholder="Enter Member Name" @bind="updateMemberName"/>
+</div>
+<div class="input group mb-3">
+    <input type="text" class="form-control" placeholder="Enter Member Email" @bind="updateMemberEmail"/>
+</div>
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter Member Phone Number" @bind="updateMemberPhoneNumber" />
+</div>
+<div class="input group mb-3">
+    <label for="updateMemberMembershipDate" class="form-label">Membership Date</label>
+    <input type="datetime-local" class="form-control" placeholder="Enter Membership Date" @bind="updateMemberMembershipDate" />
+</div>
+<button class="btn btn-warning" @onclick="UpdateMember">Update</button>
+
+@if (!string.IsNullOrEmpty(updateMessage))
+{
+    <div class="alert alert-info mt-2">@updateMessage</div>
+}
+
+    <h4>Delete Member</h4>
+
+<div class="input group mb-3">
+    <input type="number" class="form-control" placeholder="Enter Member Id" @bind="deleteMemberId"/>
+</div>
+<button class="btn btn-danger" @onclick="DeleteMember">Delete</button>
+
+@if(!string.IsNullOrEmpty(deleteMessage))
+{
+    <div class="alert alert-warning">@deleteMessage</div>
+}
+
+    <h3>Members</h3>
+
+<button class="btn btn-primary" @onclick="ToggleMembers">@(showMembers ? "Hide" : "Get")</button>
+@if(showMembers){
 
 @if (members == null)
 {
-    <p><em>Loading...</em></p>
+    <p><em>Press the button</em></p>
 }
 else if (members.Count == 0)
 {
@@ -20,11 +99,34 @@ else
         {<li>@member.MemberId-@member.MemberName, Email: @member.Email, Number; @member.PhoneNumber, MembershipDate: @member.MembershipDate</li>}
     </ul>
 }
+}
 
 @code {
-    private List<MemberDto> members;
-
     protected override async Task OnInitializedAsync()
+    {
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+    }
+    private List<MemberDto> members;
+    private bool showMembers = false;
+
+    private async Task ToggleMembers()
+    {
+        if (!showMembers)
+        {
+            await GetMembers();
+            showMembers = true;
+        }
+        else
+        {
+            showMembers = false;
+        }
+    }
+    private async Task GetMembers()
     {
         try
         {
@@ -37,7 +139,6 @@ else
             }
             var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/members");
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-
             var response = await Http.SendAsync(request);
 
             if (response.IsSuccessStatusCode)
@@ -48,11 +149,157 @@ else
             {
                 Navigation.NavigateTo("/login");
             }
-        }catch(Exception ex)
+        }
+        catch (Exception ex)
         {
             Console.WriteLine("Error loading members:" + ex.Message);
         }
     }
+
+    private string newMemberName;
+    private int? searchMemberId;
+    private string newMemberEmail;
+    private int? newMemberNumber;
+    private DateTime? newMembershipDate;
+
+    private async Task AddMember()
+    {
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+        var newMember = new MemberDto
+            {
+                MemberId = searchMemberId.Value,
+                MemberName = newMemberName,
+                Email = newMemberEmail,
+                PhoneNumber = newMemberNumber.Value, 
+                MembershipDate = newMembershipDate.Value,
+            };
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7161/api/members");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(newMember);
+
+        var response = await Http.SendAsync(request);
+
+        if(response.IsSuccessStatusCode)
+        {
+            newMemberName = "";
+            await GetMembers();
+        }
+        else
+        {
+            Console.WriteLine("Member couldnot add.");
+        }
+    }
+
+    private MemberDto? foundMember;
+    private string getMessage;
+
+    private async Task GetMemberById()
+    {
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+        if(string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://localhost:7161/api/members/{searchMemberId}");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+        var response = await Http.SendAsync(request);
+        getMessage = "";
+        if(response.IsSuccessStatusCode)
+        {
+            foundMember = await response.Content.ReadFromJsonAsync<MemberDto>();
+        }
+        else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            getMessage = "Member not found.";
+        }
+        else
+        {
+            getMessage = "Error occured while fetching the member";
+        }
+    }
+
+    private int? updateMemberId;
+    private string updateMemberName;
+    private string updateMemberEmail;
+    private int? updateMemberPhoneNumber;
+    private DateTime? updateMemberMembershipDate;
+    private string updateMessage;
+
+    private async Task UpdateMember()
+    {
+        updateMessage = "";
+
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+        if(string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+        var updateDto = new MemberDto
+            {
+                MemberId = updateMemberId.Value,
+                MemberName = updateMemberName,
+                Email = updateMemberEmail,
+                PhoneNumber = updateMemberPhoneNumber.Value,
+                MembershipDate = updateMemberMembershipDate.Value,
+            };
+        var request = new HttpRequestMessage(HttpMethod.Put, $"https://localhost:7161/api/members/{updateMemberId}");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(updateDto);
+
+        var response = await Http.SendAsync(request);
+
+        if(response.IsSuccessStatusCode)
+        {
+            updateMessage = "Member updated successfully.";
+            await GetMembers();
+        }
+        else
+        {
+            updateMessage = "Update failed.";
+        }
+    }
+
+    private int? deleteMemberId;
+    private string deleteMessage;
+
+    private async Task DeleteMember()
+    {
+        deleteMessage = "";
+
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"https://localhost:7161/api/members/{deleteMemberId}");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+        var response = await Http.SendAsync(request);
+
+        if(response.IsSuccessStatusCode)
+        {
+            deleteMessage = "Member deleted successfully.";
+            await GetMembers();
+        }
+        else if(response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            deleteMessage = "Member not found.";
+        }
+        else
+        {
+            deleteMessage = "Delete failed.";
+        }
+    }
+
+
     public class MemberDto
     {
         public int MemberId { get; set; }
