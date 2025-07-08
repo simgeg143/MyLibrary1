@@ -94,12 +94,21 @@ else if (borrows.Count == 0)
 }
 else
 {
-    <ul>
-    @foreach (var borrow in borrows)
-    {
-        <li>@borrow.BorrowId- Book: @borrow.BookId, Member: @borrow.MemberId, BorrowDate: @borrow.BorrowDate, ReturnDate: @borrow.ReturnDate</li>
-    }
-</ul>
+        <div class="d-flex flex-wrap gap-3 align-items-stretch">
+            @foreach (var borrow in borrows)
+            {
+                <div class="card" style="width:180px; display:flex; flex-direction:column;">
+                    <img src="@GetCoverImagePath(borrow.BorrowId)" class="card-img-top" alt="Book Cover" style="height:auto;" />
+                    <div class="card-body" style="flex-grow:1; display:flex; flex-direction:column; justify-content:space-between;">
+                        <h5 class="card-title">@borrow.BorrowId</h5>
+                        <p class="card-text">Book: @borrow.BookId</p>
+                        <p class="card-text">Member: @borrow.MemberId</p>
+                        <p class="card-text">Borrow Date: @borrow.BorrowDate</p>
+                        <p class="card-text">Return Date: @borrow.ReturnDate</p>
+                    </div>
+                </div>
+            }
+        </div>
 }
 }
 
@@ -157,6 +166,21 @@ else
         {
             Console.WriteLine("Error loading borrows:" + ex.Message);
         }
+    }
+    private string GetCoverImagePath(int bookId)
+    {
+        return bookId switch
+        {
+            1 => "images/covers/Sefiller___.jpeg",
+            2 => "images/covers/Giant Spiders Are So Scary - Hobbit Pt_ 2.jpeg",
+            4 => "images/covers/Dostoyevski - Suç ve Ceza.jpeg",
+            6 => "images/covers/_ hasan ali yücel klasikler dizisi.jpeg",
+            7 => "images/covers/Oğuz Atay - Tutunamayanlar.jpeg",
+            8 => "images/covers/indir.jpeg",
+            14 => "images/covers/savas-ve-baris-2 (1).jpeg",
+            15 => "images/covers/modern_türk_edebiyati_klasikleri.jpeg",
+            _ => "images/covers/Fondo Marco De Biblioteca Blanco Con Un Montón De Libros de Pantalla Imagen para Descarga Gratuita - Pngtree.jpeg"
+        };
     }
     private int? newBookId;
     private int? newMemberId;

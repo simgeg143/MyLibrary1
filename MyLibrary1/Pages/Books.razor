@@ -2,6 +2,7 @@
 @inject HttpClient Http
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@using Microsoft.AspNetCore.Components.Forms
 
 <h4>Find Book by Id</h4>
 
@@ -11,12 +12,15 @@
 </div>
 @if (foundBook != null)
 {
-    <div class="alert alert-secondary">
-        <p><strong>Id:</strong>@foundBook.BookId</p>
-        <p><strong>Name:</strong>@foundBook.Title</p>
-        <p><strong>Author Id:</strong>@foundBook.AuthorId</p>
-        <p><strong>Category Id:</strong>@foundBook.CategoryId</p>
-        <p><strong>Stock:</strong>@foundBook.Stock</p>
+    <div class="card" style="width:180px; display:flex; flex-direction:column;">
+        <img src="@GetCoverImagePath(foundBook.BookId)" class="card-img-top" alt="Book Cover" style="height:auto;" />
+        <div class="card-body" style="flex-grow:1; display:flex; flex-direction:column; justify-content:space-between;">
+            <h5 class="card-title">@foundBook.Title</h5>
+            <p class="card-text">Book: @foundBook.BookId</p>
+            <p class="card-text">Author: @foundBook.AuthorId</p>
+            <p class="card-text">Category: @foundBook.CategoryId</p>
+            <p class="card-text">Stock: @foundBook.Stock</p>
+        </div>
     </div>
 }
 @if (!string.IsNullOrEmpty(getMessage))
@@ -38,6 +42,9 @@
 <div class="input group mb-3">
     <input type="number" class="form-control" placeholder="Enter Stock" @bind="enterStock"/>
 </div>
+<div class="input group mb-3">
+    <InputFile OnChange="HandleFileSelected" />
+</div>
 <button class="btn btn-success" @onclick="AddBook">Add</button>
 
 <h4>Update Book</h4>
@@ -56,6 +63,9 @@
 </div>
 <div class="input group  mb-3">
     <input type="number" class="form-control" placeholder="Enter Stock" @bind="updateStock" />
+</div>
+<div class="input group mb-3">
+    <InputFile OnChange="HandleUpdateFileSelected"/>
 </div>
 <button class="btn btn-warning" @onclick="UpdateBook">Update</button>
 
@@ -90,14 +100,24 @@ else if (books.Count == 0)
 }
 else
 {
-    <ul>
-        @foreach (var book in books)
-        {
-            <li>@book.BookId-@book.Title, Author: @book.AuthorId, Category: @book.CategoryId, Stock: @book.Stock</li>
-        }
-    </ul>
+        <div class="d-flex flex-wrap gap-3 align-items-stretch">
+            @foreach (var book in books)
+            {
+                <div class="card" style="width:180px; display:flex; flex-direction:column;">
+                    <img src="@($"https://localhost:7161/{book.CoverImagePath}")" alt="Book Cover" />
+                    <div class="card-body" style="flex-grow:1; display:flex; flex-direction:column; justify-content:space-between;">
+                        <h5 class="card-title">@book.Title</h5>
+                        <p class="card-text">Book: @book.BookId</p>
+                        <p class="card-text">Author: @book.AuthorId</p>
+                        <p class="card-text">Category: @book.CategoryId</p>
+                        <p class="card-text">Stock: @book.Stock</p>
+                    </div>
+                </div>
+            }
+            </div>
+    }
 }
-}
+
 
 @code 
 {
@@ -144,17 +164,24 @@ else
 
             if (response.IsSuccessStatusCode)
             {
-                books = await response.Content.ReadFromJsonAsync<List<BookDto>>();    
+                books = await response.Content.ReadFromJsonAsync<List<BookDto>>();
             }
             else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
                 Navigation.NavigateTo("/login");
             }
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             Console.WriteLine("Error loading books:" + ex.Message);
         }
+    }
+    private string GetCoverImagePath(int bookId)
+    {
+        return bookId switch
+        {
+            _ => "images/covers/Fondo Marco De Biblioteca Blanco Con Un Montón De Libros de Pantalla Imagen para Descarga Gratuita - Pngtree.jpeg"
+        };
     }
     private string newTitle;
     private int? enterAuthorId;
@@ -165,29 +192,40 @@ else
     {
         var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
 
-        var newBook = new BookDto 
-        { 
-            Title = newTitle,
-            AuthorId = enterAuthorId.Value,
-            CategoryId = enterCategoryId.Value,
-            Stock = enterStock.Value,
-        };
+        var content = new MultipartFormDataContent();
+        content.Add(new StringContent(newTitle), "Title");
+        content.Add(new StringContent(enterAuthorId.Value.ToString()), "AuthorId");
+        content.Add(new StringContent(enterCategoryId.Value.ToString()), "CategoryId");
+        content.Add(new StringContent(enterStock.Value.ToString()), "Stock");
 
+        if(selectedImageFile != null)
+        {
+            var stream = selectedImageFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            var fileContent = new StreamContent(stream);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(selectedImageFile.ContentType);
+            content.Add(fileContent, "CoverImage", selectedImageFile.Name);
+        }
         var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7161/api/books");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-        request.Content = JsonContent.Create(newBook);
+        request.Content = content;
 
         var response = await Http.SendAsync(request);
 
         if(response.IsSuccessStatusCode)
         {
-            newTitle = "";
-            await GetBooks();
+            newTitle = ""; 
         }
         else
         {
             Console.WriteLine("Book couldnot add.");
         }
+    }
+    
+    IBrowserFile selectedImageFile;
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedImageFile = e.File;
     }
 
     private int? searchBookId;
@@ -240,17 +278,25 @@ else
             Navigation.NavigateTo("/login");
             return;
         }
-        var updateDto = new BookDto
+        var content = new MultipartFormDataContent();
+        content.Add(new StringContent(updateBookId.ToString()), "BookId");
+        content.Add(new StringContent(updateTitle.ToString()), "Title");
+        content.Add(new StringContent(updateAuthorId.ToString()), "AuthorId");
+        content.Add(new StringContent(updateCategoryId.ToString()), "CategoryId");
+        content.Add(new StringContent(updateStock.ToString()), "Stock");
+
+        if(selectedUpdateFile != null)
         {
-            BookId = updateBookId.Value,
-            Title = updateTitle,
-            AuthorId = updateAuthorId.Value,
-            CategoryId = updateCategoryId.Value,
-            Stock = updateStock.Value,
-        };
+            var stream = selectedUpdateFile.OpenReadStream(5*1024*1024);
+            var fileContent = new StreamContent(stream);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(selectedUpdateFile.ContentType);
+            content.Add(fileContent, "CoverImage", selectedUpdateFile.Name);
+        }
+
+
         var request = new HttpRequestMessage(HttpMethod.Put, $"https://localhost:7161/api/books/{updateBookId}");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-        request.Content = JsonContent.Create(updateDto);
+        request.Content = content;
 
         var response = await Http.SendAsync(request);
 
@@ -263,6 +309,12 @@ else
         {
             updateMessage = "Update failed.";
         }
+    }
+    private IBrowserFile selectedUpdateFile;
+
+    private void HandleUpdateFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedUpdateFile = e.File;
     }
 
     private int? deleteBookId;
@@ -307,5 +359,7 @@ else
         public int CategoryId { get; set; }
         public int Stock { get; set; }
         public int BookId { get; set; }
+        public string CoverImagePath { get; set; }
+
     }
 }
