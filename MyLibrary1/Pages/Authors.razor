@@ -10,6 +10,12 @@
     <button class="btn btn-info" @onclick="GetAuthorById">Search</button>
 </div>
 
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert alert-warning mt-2">@message</div>
+}
+
+
 @if (foundAuthor != null)
 {
     <div class="alert alert-secondary">
@@ -17,19 +23,32 @@
         <p><strong>Name:</strong>@foundAuthor.AuthorName</p>
     </div>
 }
-
 <h4>Add New Author</h4>
 
 <div class="input group mb-3">
     <input type="text" class="form-control" placeholder="New Author Name" @bind="newAuthorName"/>
     <button class="btn btn-success" @onclick="AddAuthor">Add</button>
-</div>
+</div> 
+
+@if (!string.IsNullOrEmpty(addMessage))
+{
+    <div class="alert alert-info mt-2">@addMessage</div>
+}
 
 <h4>Update Author</h4>
 
 <div class="input group mb-3">
-    <input type="number" class="form-control" placeholder="Enter author Id" @bind="updateAuthorId"/>
-    </div>
+    <select class="form-select" @bind="updateAuthorId">
+        <option value="">Select Author</option>
+        @if (authors != null)
+        {
+            @foreach (var author in authors)
+            {
+                <option value="@author.AuthorId">@author.AuthorId - @author.AuthorName</option>
+            }
+        }
+        </select>
+</div>
     <div class="input groub mb-3">
         <input type="text" class="form-control" placeholder="New Author Name" @bind="updateAuthorName"/>
     </div>
@@ -43,7 +62,16 @@
 <h4>Delete Author</h4>
 
 <div class="input group mb-3">
-    <input type="number" class="form-control" placeholder="Enter author Id" @bind="deleteAuthorId" />
+    <select class="form-select" @bind="deleteAuthorId">
+        <option value="">Select Author</option>
+        @if (authors != null)
+        {
+            @foreach (var author in authors)
+            {
+                <option value="@author.AuthorId">@author.AuthorId - @author.AuthorName</option>
+            }
+        }
+    </select>
 </div>
 <button class="btn btn-danger" @onclick="DeleteAuthor">Delete</button>
 
@@ -86,6 +114,8 @@ else
             Navigation.NavigateTo("/login");
             return;
         }
+        await GetAuthors();
+        showAuthors = true;
     }
     private bool showAuthors = false;
     private List<AuthorDto> authors;
@@ -132,7 +162,7 @@ else
             Console.WriteLine("Error loading authors:" + ex.Message);
         }
     }
-    private string newAuthorName;
+    private string? newAuthorName;
     private string addMessage;
 
     private async Task AddAuthor()
@@ -150,18 +180,21 @@ else
         if (response.IsSuccessStatusCode)
         {
             addMessage = "Successfully added";
-            await GetAuthors();
         }
         else
         {
+            newAuthor = null;
             Console.WriteLine("Author couldnot add.");
         }
     }
     private int? searchAuthorId;
+    private string message;
     private AuthorDto? foundAuthor;
 
     private async Task GetAuthorById()
     {
+        message = ""; 
+        foundAuthor = null;
         var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
 
         if(string.IsNullOrWhiteSpace(token))
@@ -173,16 +206,32 @@ else
         var request = new HttpRequestMessage(HttpMethod.Get, $"https://localhost:7161/api/authors/{searchAuthorId}");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
-        var response = await Http.SendAsync(request);
+        try
+        {
+            var response = await Http.SendAsync(request);
 
-        if (response.IsSuccessStatusCode)
-        {
-            foundAuthor = await response.Content.ReadFromJsonAsync<AuthorDto>();
+            if (response.IsSuccessStatusCode)
+            {
+                foundAuthor = await response.Content.ReadFromJsonAsync<AuthorDto>();
+                message = "Author found successfully.";
+                await GetAuthors();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                foundAuthor = null;
+                message = "Author not found.";
+                Console.WriteLine("Author not found.");
+            }
+            else
+            {
+                foundAuthor = null;
+                message = "Failed.";
+            }
         }
-        else
+        catch(Exception ex)
         {
-            foundAuthor = null;
-            Console.WriteLine("Author not found.");
+            message = "Failed.";
+            Console.WriteLine("Exception:" + ex.Message);
         }
     }
 

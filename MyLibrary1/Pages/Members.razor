@@ -10,6 +10,11 @@
     <button class="btn btn-info" @onclick="GetMemberById">Search</button>
 </div>
 
+@if (!string.IsNullOrEmpty(getMessage))
+{
+    <div class="alert alert-info">@getMessage</div>
+}
+
 @if (foundMember != null)
 {
     <div class="alert alert-secondary">
@@ -20,21 +25,16 @@
         <p><strong>Membership Date:</strong>@foundMember.MembershipDate</p>
     </div>
 }
-@if (!string.IsNullOrEmpty(getMessage))
-{
-    <div class="alert alert-info">@getMessage</div>
-}
-
 <h4>Add New Member</h4>
 
 <div class="input group mb-3">
     <input type="text" class="form-control" placeholder="New Member Name" @bind="newMemberName"/>
 </div>
 <div class="input group mb-3">
-    <input type="text" class="form-control" placeholder="New Member Email" @bind="newMemberEmail" />
+    <input type="text" class="form-control" placeholder="New Member Email" @bind="newMemberEmail"/>
 </div>
 <div class="input group mb-3">
-    <input type="number" class="form-control" placeholder="New Member Number" @bind="newMemberNumber" />
+    <input type="number" class="form-control" placeholder="New Member Number" @bind="newMemberNumber"/>
 </div>
 <div class="input group mb-3">
     <label for="newMembershipDate" class="form-label">Membership Date</label>
@@ -42,10 +42,24 @@
 </div>
 <button class="btn btn-success" @onclick="AddMember">Add</button>
 
+@if (!string.IsNullOrEmpty(addMessage))
+{
+    <div class="alert alert-info">@addMessage</div>
+}
+
 <h4>Update Member</h4>
 
 <div class="input group mb-3">
-    <input type="number" class="form-control" placeholder="Enter Member Id" @bind="updateMemberId"/>
+    <select class="form-select" @bind="updateMemberId">
+        <option value="">Select Member</option>
+        @if (members != null)
+        {
+            @foreach (var member in members)
+            {
+                <option value="@member.MemberId">@member.MemberId - @member.MemberName</option>
+            }
+        }
+    </select>
 </div>
 <div class="input group mb-3">
     <input type="text" class="form-control" placeholder="Enter Member Name" @bind="updateMemberName"/>
@@ -70,7 +84,16 @@
     <h4>Delete Member</h4>
 
 <div class="input group mb-3">
-    <input type="number" class="form-control" placeholder="Enter Member Id" @bind="deleteMemberId"/>
+    <select class="form-select" @bind="deleteMemberId">
+        <option value="">Select Member</option>
+        @if (members != null)
+        {
+            @foreach (var member in members)
+            {
+                <option value="@member.MemberId">@member.MemberId - @member.MemberName</option>
+            }
+        }
+    </select>
 </div>
 <button class="btn btn-danger" @onclick="DeleteMember">Delete</button>
 
@@ -110,6 +133,8 @@ else
             Navigation.NavigateTo("/login");
             return;
         }
+        await GetMembers();
+        showMembers = true;
     }
     private List<MemberDto> members;
     private bool showMembers = false;
@@ -161,9 +186,16 @@ else
     private string newMemberEmail;
     private int? newMemberNumber;
     private DateTime? newMembershipDate;
+    private string addMessage;
 
     private async Task AddMember()
     {
+        if (newMemberName == null || newMemberEmail == null || searchMemberId == null || newMemberNumber == null || newMembershipDate == null)
+        {
+            addMessage = "Failed.";
+            StateHasChanged();
+            return;
+        }
         var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
 
         var newMember = new MemberDto
@@ -183,6 +215,7 @@ else
 
         if(response.IsSuccessStatusCode)
         {
+            addMessage = "Successfully added.";
             newMemberName = "";
             await GetMembers();
         }
@@ -197,31 +230,44 @@ else
 
     private async Task GetMemberById()
     {
+        getMessage = "";
+        foundMember = null;
         var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
-        if(string.IsNullOrWhiteSpace(token))
+        if (string.IsNullOrWhiteSpace(token))
         {
             Navigation.NavigateTo("/login");
             return;
         }
         var request = new HttpRequestMessage(HttpMethod.Get, $"https://localhost:7161/api/members/{searchMemberId}");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-
-        var response = await Http.SendAsync(request);
-        getMessage = "";
-        if(response.IsSuccessStatusCode)
+        try
         {
-            foundMember = await response.Content.ReadFromJsonAsync<MemberDto>();
+            var response = await Http.SendAsync(request);
+            getMessage = "";
+            if (response.IsSuccessStatusCode)
+            {
+                foundMember = await response.Content.ReadFromJsonAsync<MemberDto>();
+                getMessage = "Member found successfully.";
+                await GetMembers();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                getMessage = "Member not found.";
+                foundMember = null;
+                Console.WriteLine("Member not found.");
+            }
+            else
+            {
+                foundMember = null;
+                getMessage = "Error occured while fetching the member";
+            }
         }
-        else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        catch (Exception ex)
         {
-            getMessage = "Member not found.";
-        }
-        else
-        {
-            getMessage = "Error occured while fetching the member";
+            getMessage = "Failed.";
+            Console.WriteLine("Exception:" + ex.Message);
         }
     }
-
     private int? updateMemberId;
     private string updateMemberName;
     private string updateMemberEmail;
@@ -231,6 +277,12 @@ else
 
     private async Task UpdateMember()
     {
+        if (updateMemberName == null || updateMemberId == null || updateMemberEmail == null || updateMemberPhoneNumber == null || updateMemberMembershipDate == null)
+        {
+            updateMessage = "Failed.";
+            StateHasChanged();
+            return;
+        }
         updateMessage = "";
 
         var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");

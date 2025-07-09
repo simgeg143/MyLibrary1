@@ -9,19 +9,22 @@
     <input type="number" class="form-control" placeholder="Enter Borrow Id" @bind="searchBorrowId"/>
     <button class="btn btn-info" @onclick="GetBorrowById">Search</button>
 </div>
+@if (!string.IsNullOrEmpty(getMessage))
+{
+    <div class="alert alert-warning">@getMessage</div>
+}
 @if (foundBorrow != null)
 {
-    <div class="alert alert-secondary">
-        <p><strong>Id:</strong>@foundBorrow.BorrowId</p>
-        <p><strong>Book Id:</strong>@foundBorrow.BookId</p>
-        <p><strong>Member Id:</strong>@foundBorrow.MemberId</p>
-        <p><strong>Borrow Date</strong>@foundBorrow.BorrowDate</p>
-        <p><strong>Return Date:</strong>@foundBorrow.ReturnDate</p>
+    <div class="card" style="width:180px; display:flex; flex-direction:column;">
+        <img src="@($"https://localhost:7161/{foundBorrow.CoverImagePath}")" alt="Book Cover" />
+        <div class="card-body" style="flex-grow:1; display:flex; flex-direction:column; justify-content:space-between;">
+            <p class="card-title">Borrow: @foundBorrow.BorrowId</p>
+            <p class="card-text">Book: @foundBorrow.BookId</p>
+            <p class="card-text">Member: @foundBorrow.MemberId</p>
+            <p class="card-text">Borrow Date: @foundBorrow.BorrowDate</p>
+            <p class="card-text">Return Date: @foundBorrow.ReturnDate</p>
+        </div>
     </div>
-}
-@if(!string.IsNullOrEmpty(getMessage))
-{
-    <div class="alert alert-info">@getMessage</div>
 }
 
 <h4> Add New Borrow</h4>
@@ -42,10 +45,24 @@
 </div>
 <button class="btn btn-success" @onclick="AddBorrow">Add</button>
 
+@if (!string.IsNullOrEmpty(addMessage))
+{
+    <div class="alert alert-warning mt-2">@addMessage</div>
+}
+
 <h4>Update Borrow</h4>
 
 <div class="input group  mb-3">
-    <input type="number" class="form-control" placeholder="Enter Borrow Id" @bind="updateBorrowId" />
+    <select class="form-select" @bind="updateBorrowId">
+        <option value="">Select Borrow</option>
+        @if (borrows != null)
+        {
+            @foreach (var borrow in borrows)
+            {
+                <option value="@borrow.BorrowId">@borrow.BorrowId</option>
+            }
+        }
+    </select>
 </div>
 <div class=" input group  mb-3">
     <input type="number" class="form-control" placeholder="Enter Book Id" @bind="updateBookId" />
@@ -65,13 +82,22 @@
 
 @if (!string.IsNullOrEmpty(updateMessage))
 {
-    <div class="alert alert-info mt-2">@updateMessage</div>
+    <div class="alert alert-warning mt-2">@updateMessage</div>
 }
 
 <h4>Delete Borrow</h4>
 
 <div class="input group mb-3">
-    <input type="number" class="form-control" placeholder="Enter Borrow Id" @bind="deleteBorrowId" />
+    <select class="form-select" @bind="deleteBorrowId">
+        <option value="">Select Borrow</option>
+        @if (borrows != null)
+        {
+            @foreach (var borrow in borrows)
+            {
+                <option value="@borrow.BorrowId">@borrow.BorrowId</option>
+            }
+        }
+    </select>
 </div>
 <button class="btn btn-danger" @onclick="DeleteBorrow">Delete</button>
 
@@ -98,9 +124,9 @@ else
             @foreach (var borrow in borrows)
             {
                 <div class="card" style="width:180px; display:flex; flex-direction:column;">
-                    <img src="@GetCoverImagePath(borrow.BorrowId)" class="card-img-top" alt="Book Cover" style="height:auto;" />
+                    <img src="@($"https://localhost:7161/{borrow.CoverImagePath}")" alt="Book Cover" />
                     <div class="card-body" style="flex-grow:1; display:flex; flex-direction:column; justify-content:space-between;">
-                        <h5 class="card-title">@borrow.BorrowId</h5>
+                        <h5 class="card-title">Borrow: @borrow.BorrowId</h5>
                         <p class="card-text">Book: @borrow.BookId</p>
                         <p class="card-text">Member: @borrow.MemberId</p>
                         <p class="card-text">Borrow Date: @borrow.BorrowDate</p>
@@ -121,6 +147,8 @@ else
             Navigation.NavigateTo("/login");
             return;
         }
+        await GetBorrows();
+        showBorrows = true;
     }
 
     private List<BorrowDto> borrows;
@@ -164,54 +192,54 @@ else
             }
         }catch(Exception ex)
         {
-            Console.WriteLine("Error loading borrows:" + ex.Message);
+            Console.WriteLine("Error loading borrows:" +ex.Message);
         }
     }
-    private string GetCoverImagePath(int bookId)
-    {
-        return bookId switch
-        {
-            1 => "images/covers/Sefiller___.jpeg",
-            2 => "images/covers/Giant Spiders Are So Scary - Hobbit Pt_ 2.jpeg",
-            4 => "images/covers/Dostoyevski - Suç ve Ceza.jpeg",
-            6 => "images/covers/_ hasan ali yücel klasikler dizisi.jpeg",
-            7 => "images/covers/Oğuz Atay - Tutunamayanlar.jpeg",
-            8 => "images/covers/indir.jpeg",
-            14 => "images/covers/savas-ve-baris-2 (1).jpeg",
-            15 => "images/covers/modern_türk_edebiyati_klasikleri.jpeg",
-            _ => "images/covers/Fondo Marco De Biblioteca Blanco Con Un Montón De Libros de Pantalla Imagen para Descarga Gratuita - Pngtree.jpeg"
-        };
-    }
+
     private int? newBookId;
     private int? newMemberId;
     private DateTime? newBorrowDate;
     private DateTime? newReturnDate;
+    private string addMessage;
 
     private async Task AddBorrow()
     {
+        if (newBookId == null || newMemberId == null || newBorrowDate == null || newReturnDate == null)
+        {
+            addMessage = "Failed.";
+            StateHasChanged();
+            return;
+        }
+
         var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
 
-        var newBorrow = new BorrowDto
+        var newBorrowDto = new BorrowDto
+        {
+            BookId = newBookId.Value,
+            MemberId = newMemberId.Value,
+            BorrowDate = newBorrowDate.Value,
+            ReturnDate = newReturnDate.Value,
+        };
+        try{
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7161/api/borrows");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            request.Content = JsonContent.Create(newBorrowDto);
+            var response = await Http.SendAsync(request);
+            addMessage = "";
+
+            if (response.IsSuccessStatusCode)
             {
-                BookId = newBookId.Value,
-                MemberId = newMemberId.Value,
-                BorrowDate = newBorrowDate.Value,
-                ReturnDate = newReturnDate.Value,
-            };
-
-        var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7161/api/borrows");
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-        request.Content = JsonContent.Create(newBorrow);
-
-        var response = await Http.SendAsync(request);
-
-        if (response.IsSuccessStatusCode)
+                addMessage = "Successfully added.";
+            }
+            else
+            {
+                addMessage = "Borrow could not add.";
+                Console.WriteLine("Borrow couldnot add.");
+            }
+        }catch (Exception ex)
         {
-            await GetBorrows();
-        }
-        else
-        {
-            Console.WriteLine("Borrow couldnot add.");
+            addMessage = "Failed";
+            Console.WriteLine("Exception" + ex.Message);
         }
     }
 
@@ -221,6 +249,8 @@ else
 
     private async Task GetBorrowById()
     {
+        getMessage = "";
+        foundBorrow = null;
         var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
 
         if (string.IsNullOrWhiteSpace(token))
@@ -231,20 +261,32 @@ else
         var request = new HttpRequestMessage(HttpMethod.Get, $"https://localhost:7161/api/borrows/{searchBorrowId}");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
-        var response = await Http.SendAsync(request);
-        getMessage = "";
-        if (response.IsSuccessStatusCode)
+        try
         {
-            foundBorrow = await response.Content.ReadFromJsonAsync<BorrowDto>();
-        }
-        else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            var response = await Http.SendAsync(request);
+            getMessage = "";
+            if (response.IsSuccessStatusCode)
+            {
+                foundBorrow = await response.Content.ReadFromJsonAsync<BorrowDto>();
+                getMessage = "Borrow found successfully.";
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                getMessage = "Borrow not found.";
+                foundBorrow = null;
+                Console.WriteLine("Borrow not found.");
+            }
+            else
+            {
+                getMessage = "Error occured while fetching the borrow";
+                foundBorrow = null;
+            }
+        }catch(Exception ex)
         {
-            getMessage = "Borrow not found.";
+            getMessage = "Failed";
+            Console.WriteLine("Exception" + ex.Message);
         }
-        else
-        {
-            getMessage = "Error occured while fetching the borrow";
-        }
+
     }
     private int? updateBorrowId;
     private int? updateBookId;
@@ -255,6 +297,12 @@ else
 
     private async Task UpdateBorrow()
     {
+        if (updateBookId == null || updateMemberId == null || updateBorrowDate == null || updateReturnDate == null)
+        {
+            updateMessage = "Failed.";
+            StateHasChanged();
+            return;
+        }
         var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
 
         if (string.IsNullOrWhiteSpace(token))
@@ -269,20 +317,30 @@ else
             BorrowDate = updateBorrowDate.Value,
             ReturnDate = updateReturnDate.Value,
         };
-        var request = new HttpRequestMessage(HttpMethod.Put, $"https://localhost:7161/api/borrows/{updateBorrowId}");
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-        request.Content = JsonContent.Create(updateDto);
 
-        var response = await Http.SendAsync(request);
-
-        if (response.IsSuccessStatusCode)
+        try
         {
-            updateMessage = "Borrow updated successfully.";
-            await GetBorrows();
+            var request = new HttpRequestMessage(HttpMethod.Put, $"https://localhost:7161/api/borrows/{updateBorrowId}");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            request.Content = JsonContent.Create(updateDto);
+            var response = await Http.SendAsync(request);
+            updateMessage = "";
+
+            if (response.IsSuccessStatusCode)
+            {
+                updateMessage = "Borrow updated successfully.";
+                await GetBorrows();
+            }
+            else
+            {
+                updateMessage = "Borrow could not update.";
+                Console.WriteLine("Borrow couldnot update.");
+            }
         }
-        else
+        catch (Exception ex)
         {
-            updateMessage = "Update failed.";
+            updateMessage = "Failed";
+            Console.WriteLine("Exception" + ex.Message);
         }
 
     }
@@ -321,7 +379,7 @@ else
         }
     }
 
-    public class BorrowDto
+    public class AddBorrowDto
     {
         public int BorrowId { get; set; }
         public int BookId { get; set; }
@@ -330,5 +388,16 @@ else
         public DateTime ReturnDate { get; set; }
 
     }
+    public class BorrowDto 
+    {
+        public int BorrowId { get; set; }
+        public int BookId { get; set; }
+        public int MemberId { get; set; }
+        public DateTime BorrowDate { get; set; }
+        public DateTime ReturnDate { get; set; }
+        public string? CoverImagePath { get; set; }
+
+    }
+
 
 }
