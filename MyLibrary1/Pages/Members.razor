@@ -6,8 +6,17 @@
 <h4>Find Member by Id</h4>
 
 <div class="input group mb-3">
-    <input type="number" class="form-control" placeholder="Enter Member Id" @bind="searchMemberId" />
-    <button class="btn btn-info" @onclick="GetMemberById">Search</button>
+    <select class="form-select" @bind="searchMemberId" >
+        <option value="">Select Member</option>
+        @if (members != null)
+        {
+            @foreach(var member in members)
+            {
+                <option value="@member.MemberId">@member.MemberId - @member.MemberName</option>
+            }
+        }
+        </select>
+        <button class="btn btn-info" @onclick="GetMemberById">Search</button>
 </div>
 
 @if (!string.IsNullOrEmpty(getMessage))
@@ -190,7 +199,7 @@ else
 
     private async Task AddMember()
     {
-        if (newMemberName == null || newMemberEmail == null || searchMemberId == null || newMemberNumber == null || newMembershipDate == null)
+        if (newMemberName == null || newMemberEmail == null ||  newMemberNumber == null || newMembershipDate == null)
         {
             addMessage = "Failed.";
             StateHasChanged();
@@ -200,7 +209,6 @@ else
 
         var newMember = new MemberDto
             {
-                MemberId = searchMemberId.Value,
                 MemberName = newMemberName,
                 Email = newMemberEmail,
                 PhoneNumber = newMemberNumber.Value, 
@@ -212,7 +220,6 @@ else
         request.Content = JsonContent.Create(newMember);
 
         var response = await Http.SendAsync(request);
-
         if(response.IsSuccessStatusCode)
         {
             addMessage = "Successfully added.";

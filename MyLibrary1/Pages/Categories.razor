@@ -6,8 +6,17 @@
 <h4>Find Category by Id</h4>
 
 <div class="input group mb-3">
-    <input type="number" class="form-control" placeholder="Enter Category Id" @bind="searchCategoryId" />
-    <button class="btn btn-info" @onclick="GetCategoryById">Search</button>
+    <select class="form-select" @bind="searchCategoryId" >
+        <option value="">Select Category</option>
+        @if (categories != null)
+        {
+            @foreach(var category in categories)
+            {
+                <option value="@category.CategoryId">@category.CategoryId - @category.CategoryName</option>
+            }
+        }
+        </select>
+        <button class="btn btn-info" @onclick="GetCategoryById">Search</button>
 </div>
 @if (!string.IsNullOrEmpty(getMessage))
 {

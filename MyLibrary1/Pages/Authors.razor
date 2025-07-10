@@ -6,7 +6,16 @@
 <h4>Find Author by Id</h4>
 
 <div class="input group mb-3">
-    <input type="number" class="form-control" placeholder="Enter author Id" @bind="searchAuthorId" />
+    <select class="form-select" @bind="searchAuthorId" >
+    <option value="">Select Author</option>
+    @if(authors != null)
+    {
+        @foreach(var author in authors)
+        {
+            <option value="@author.AuthorId">@author.AuthorId - @author.AuthorName</option>
+        }
+    }
+    </select>
     <button class="btn btn-info" @onclick="GetAuthorById">Search</button>
 </div>
 
@@ -23,6 +32,7 @@
         <p><strong>Name:</strong>@foundAuthor.AuthorName</p>
     </div>
 }
+
 <h4>Add New Author</h4>
 
 <div class="input group mb-3">
@@ -102,8 +112,7 @@ else
         }
     </ul>
 }
-}
-
+    }
 
 @code {
     protected override async Task OnInitializedAsync()
