@@ -2,7 +2,9 @@
 @inject HttpClient Http
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@using MyLibrary1.Helpers
 
+@if (role == "admin"){
 <h4>Find Member by Id</h4>
 
 <div class="input group mb-3">
@@ -34,6 +36,7 @@
         <p><strong>Membership Date:</strong>@foundMember.MembershipDate</p>
     </div>
 }
+
 <h4>Add New Member</h4>
 
 <div class="input group mb-3">
@@ -43,7 +46,7 @@
     <input type="text" class="form-control" placeholder="New Member Email" @bind="newMemberEmail"/>
 </div>
 <div class="input group mb-3">
-    <input type="number" class="form-control" placeholder="New Member Number" @bind="newMemberNumber"/>
+    <input type="number" class="form-control" placeholder="New Member Phone Number" @bind="newMemberNumber"/>
 </div>
 <div class="input group mb-3">
     <label for="newMembershipDate" class="form-label">Membership Date</label>
@@ -131,9 +134,19 @@ else
         {<li>@member.MemberId-@member.MemberName, Email: @member.Email, Number; @member.PhoneNumber, MembershipDate: @member.MembershipDate</li>}
     </ul>
 }
+    }
 }
 
+else
+{
+    <p>You do not have permission to view this page.</p>
+}
+
+
 @code {
+    private string role;
+    private string username;
+    private bool isAuthenticated;
     protected override async Task OnInitializedAsync()
     {
         var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
@@ -144,6 +157,12 @@ else
         }
         await GetMembers();
         showMembers = true;
+        if (!string.IsNullOrEmpty(token))
+        {
+            isAuthenticated = true;
+            role = TokenHelper.GetRoleFromToken(token);
+            username = TokenHelper.GetUsernameFromToken(token);
+        }
     }
     private List<MemberDto> members;
     private bool showMembers = false;
@@ -171,7 +190,7 @@ else
                 Navigation.NavigateTo("/login");
                 return;
             }
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/members");
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/members/common");
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
             var response = await Http.SendAsync(request);
 
@@ -193,7 +212,7 @@ else
     private string newMemberName;
     private int? searchMemberId;
     private string newMemberEmail;
-    private int? newMemberNumber;
+    private string? newMemberNumber;
     private DateTime? newMembershipDate;
     private string addMessage;
 
@@ -211,11 +230,11 @@ else
             {
                 MemberName = newMemberName,
                 Email = newMemberEmail,
-                PhoneNumber = newMemberNumber.Value, 
+                PhoneNumber = newMemberNumber, 
                 MembershipDate = newMembershipDate.Value,
             };
 
-        var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7161/api/members");
+        var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7161/api/members/common");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         request.Content = JsonContent.Create(newMember);
 
@@ -245,7 +264,7 @@ else
             Navigation.NavigateTo("/login");
             return;
         }
-        var request = new HttpRequestMessage(HttpMethod.Get, $"https://localhost:7161/api/members/{searchMemberId}");
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://localhost:7161/api/members/common/{searchMemberId}");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         try
         {
@@ -278,7 +297,7 @@ else
     private int? updateMemberId;
     private string updateMemberName;
     private string updateMemberEmail;
-    private int? updateMemberPhoneNumber;
+    private string? updateMemberPhoneNumber;
     private DateTime? updateMemberMembershipDate;
     private string updateMessage;
 
@@ -304,10 +323,10 @@ else
                 MemberId = updateMemberId.Value,
                 MemberName = updateMemberName,
                 Email = updateMemberEmail,
-                PhoneNumber = updateMemberPhoneNumber.Value,
+                PhoneNumber = updateMemberPhoneNumber,
                 MembershipDate = updateMemberMembershipDate.Value,
             };
-        var request = new HttpRequestMessage(HttpMethod.Put, $"https://localhost:7161/api/members/{updateMemberId}");
+        var request = new HttpRequestMessage(HttpMethod.Put, $"https://localhost:7161/api/members/common/{updateMemberId}");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         request.Content = JsonContent.Create(updateDto);
 
@@ -338,7 +357,7 @@ else
             Navigation.NavigateTo("/login");
             return;
         }
-        var request = new HttpRequestMessage(HttpMethod.Delete, $"https://localhost:7161/api/members/{deleteMemberId}");
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"https://localhost:7161/api/members/common/{deleteMemberId}");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
         var response = await Http.SendAsync(request);
@@ -364,7 +383,7 @@ else
         public int MemberId { get; set; }
         public string MemberName { get; set; }
         public string Email { get; set; }
-        public int PhoneNumber { get; set; }
+        public string PhoneNumber { get; set; }
         public DateTime MembershipDate { get; set; }
     }
 

@@ -4,6 +4,7 @@
 @using System.Security.Claims
 @using MyLibrary1.Providers
 @inject IJSRuntime JS
+@using MyLibrary1.Helpers
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -71,15 +72,25 @@
                <span style="font-size:1.1rem;">Categories</span>
             </NavLink>
             </div>
+            @if (userRole == "admin")
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link d-flex align-items-center gap-2" href="users" Match="NavLinkMatch.All">
+                        <i class="fa-solid fa-users fa-2x"></i>
+                        <span style="font-size:1.1rem;">M</span>
+                    </NavLink>
+                </div>
+            }
           <div class="nav-item px-3">
                 <NavLink class="nav-link d-flex align-items-center gap-2" href="members" Match="NavLinkMatch.All">
                <i class="fa-solid fa-people-pulling fa-2x"></i>
                <span style="font-size:1.1rem;">Members</span>
             </NavLink>
-        </div>
+        </div>            
   </nav>
   </div>
 @code {
+    private string? userRole;
     private AuthenticationState authState;
     private ClaimsPrincipal user;
     private bool collapseNavMenu = true;
@@ -93,6 +104,15 @@
     {
         authState = await AuthProvider.GetAuthenticationStateAsync();
         user = authState.User;
+
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+        if (!string.IsNullOrEmpty(token))
+        {
+            var tokenHandler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+            var jwtToken = tokenHandler.ReadJwtToken(token);
+            var roleClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "role");
+            userRole = roleClaim?.Value;
+        }
     }
 
     private void ToggleNavMenu()

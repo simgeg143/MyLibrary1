@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.JSInterop;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Threading.Tasks;
 
@@ -24,24 +25,15 @@ namespace MyLibrary1.Providers
                 return new AuthenticationState(anonymous);
             }
 
-            var claims = new[]
-            {
-                new Claim(ClaimTypes.Name, "User")
-            };
-
-            var identity = new ClaimsIdentity(claims, "jwt");
+            var identity = new ClaimsIdentity(GetClaimsFromToken(token), "jwt");
             var user = new ClaimsPrincipal(identity);
 
             return new AuthenticationState(user);
         }
 
-        public void NotifyUserAuthentication(string userName)
-        {
-            var claims = new[]
-            {
-                new Claim(ClaimTypes.Name, userName)
-            };
-            var identity = new ClaimsIdentity(claims, "jwt");
+        public void NotifyUserAuthentication(string token)
+        {          
+            var identity = new ClaimsIdentity(GetClaimsFromToken(token), "jwt");
             var user = new ClaimsPrincipal(identity);
 
             NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(user)));
@@ -51,6 +43,12 @@ namespace MyLibrary1.Providers
         {
             var anonymous = new ClaimsPrincipal(new ClaimsIdentity());
             NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(anonymous)));
+        }        
+        private IEnumerable<Claim> GetClaimsFromToken(string token)
+        {
+            var handler = new JwtSecurityTokenHandler();
+            var jwtToken = handler.ReadJwtToken(token);
+            return jwtToken.Claims;
         }
     }
 }

@@ -2,10 +2,11 @@
 @inject HttpClient Http
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@using MyLibrary1.Helpers
 
+@if (role == "admin"  || role == "user"){
 <h4>Find Category by Id</h4>
-
-<div class="input group mb-3">
+   <div class="input group mb-3">
     <select class="form-select" @bind="searchCategoryId" >
         <option value="">Select Category</option>
         @if (categories != null)
@@ -30,6 +31,8 @@
         <p><strong>Name:</strong>@foundCategory.CategoryName</p>
     </div>
 }
+}
+@if(role == "admin"){
 <h4>Add New Category</h4>
 
 <div class=" input group mb-3">
@@ -85,7 +88,7 @@
 {
     <div class="alert alert-warning">@deleteMessage</div>
 }
-
+}@if (role == "admin"  || role == "user"){
 <h3>Categories</h3>
 
 <button class="btn btn-primary" @onclick="ToggleCategories">@(showCategories ? "Hide" : "Get")</button>
@@ -108,8 +111,11 @@ else
     </ul>
 }
 }
-
+}
 @code {
+    private string role;
+    private string username;
+    private bool isAuthenticated;
     protected override async Task OnInitializedAsync()
     {
         var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
@@ -121,6 +127,12 @@ else
         }
         await GetCategories();
         showCategories = true;
+        if (!string.IsNullOrEmpty(token))
+        {
+            isAuthenticated = true;
+            role = TokenHelper.GetRoleFromToken(token);
+            username = TokenHelper.GetUsernameFromToken(token);
+        }
     }
     private List<CategoryDto> categories;
     private bool showCategories = false;
@@ -149,7 +161,7 @@ else
                 Navigation.NavigateTo("/login");
                 return;
             }
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/categories");
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/categories/common");
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
             var response = await Http.SendAsync(request);
@@ -174,21 +186,19 @@ else
 
     private async Task AddCategory()
     {
-        if (newCategoryName == null || searchCategoryId == null)
+        if (string.IsNullOrWhiteSpace(newCategoryName))
         {
-            addMessage = "Failed.";
-            StateHasChanged();
+            addMessage = "Failed.";           
             return;
         }
         var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
 
         var newCategory = new CategoryDto
-            {
-                CategoryId = searchCategoryId.Value,
+            {         
                 CategoryName = newCategoryName,
             };
 
-        var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7161/api/categories");
+        var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7161/api/categories/admin-only");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         request.Content = JsonContent.Create(newCategory);
 
@@ -199,7 +209,7 @@ else
         {
             addMessage = "Successfully added.";
             newCategoryName = "";
-            await OnInitializedAsync();
+            await GetCategories();
         }
         else
         {
@@ -228,7 +238,7 @@ else
             Navigation.NavigateTo("/login");
             return;
         }
-        var request = new HttpRequestMessage(HttpMethod.Get, $"https://localhost:7161/api/categories/{searchCategoryId}");
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://localhost:7161/api/categories/common/{searchCategoryId}");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
         try
@@ -286,7 +296,7 @@ else
             CategoryName = updateCategoryName,
             CategoryId = updateCategoryId.Value,
         };
-        var request = new HttpRequestMessage(HttpMethod.Put, $"https://localhost:7161/api/categories/{updateCategoryId}");
+        var request = new HttpRequestMessage(HttpMethod.Put, $"https://localhost:7161/api/categories/admin-only/{updateCategoryId}");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         request.Content = JsonContent.Create(updateDto);
 
@@ -296,7 +306,7 @@ else
         if (response.IsSuccessStatusCode)
         {
             updateMessage = "Category updated successfully.";
-            await OnInitializedAsync();
+            await GetCategories();
         }
         else
         {
@@ -324,7 +334,7 @@ else
             Navigation.NavigateTo("/login");
             return;
         }
-        var request = new HttpRequestMessage(HttpMethod.Delete, $"https://localhost:7161/api/categories/{deleteCategoryId}");
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"https://localhost:7161/api/categories/admin-only/{deleteCategoryId}");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
         var response = await Http.SendAsync(request);
@@ -332,7 +342,7 @@ else
         if (response.IsSuccessStatusCode)
         {
             deleteMessage = "Category deleted successfully.";
-            await OnInitializedAsync();
+            await GetCategories();
         }
         else if(response.StatusCode == System.Net.HttpStatusCode.NotFound)
         {

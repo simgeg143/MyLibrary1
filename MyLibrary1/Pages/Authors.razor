@@ -2,9 +2,10 @@
 @inject HttpClient Http
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@using MyLibrary1.Helpers
 
+@if (role == "user" || role == "admin") { 
 <h4>Find Author by Id</h4>
-
 <div class="input group mb-3">
     <select class="form-select" @bind="searchAuthorId" >
     <option value="">Select Author</option>
@@ -32,7 +33,8 @@
         <p><strong>Name:</strong>@foundAuthor.AuthorName</p>
     </div>
 }
-
+}
+@if(role == "admin"){
 <h4>Add New Author</h4>
 
 <div class="input group mb-3">
@@ -89,7 +91,8 @@
 {
     <div class="alert alert-warning">@deleteMessage</div>
 }
-
+}
+@if (role == "user" || role == "admin"){
 <h3>Authors</h3>
 
 <button class="btn btn-primary" @onclick="ToggleAuthors">@(showAuthors ? "Hide" : "Get")</button>
@@ -113,8 +116,12 @@ else
     </ul>
 }
     }
+    }
 
 @code {
+    private string role;
+    private string username;
+    private bool isAuthenticated;
     protected override async Task OnInitializedAsync()
     {
         var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
@@ -122,9 +129,15 @@ else
         {
             Navigation.NavigateTo("/login");
             return;
+
         }
+        role = TokenHelper.GetRoleFromToken(token);
+        username = TokenHelper.GetUsernameFromToken(token);
+        StateHasChanged();
         await GetAuthors();
         showAuthors = true;
+        StateHasChanged();
+
     }
     private bool showAuthors = false;
     private List<AuthorDto> authors;
@@ -152,7 +165,7 @@ else
                 Navigation.NavigateTo("/login");
                 return;
             }
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/authors");
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/authors/common");
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
             var response = await Http.SendAsync(request);
@@ -176,11 +189,18 @@ else
 
     private async Task AddAuthor()
     {
+        addMessage = "";
         var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
 
-        var newAuthor = new AuthorDto { AuthorName = newAuthorName };
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+        var newAuthor = new AuthorDto 
+        { AuthorName = newAuthorName };
 
-        var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7161/api/authors");
+        var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7161/api/authors/admin-only");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         request.Content = JsonContent.Create(newAuthor);
 
@@ -189,6 +209,7 @@ else
         if (response.IsSuccessStatusCode)
         {
             addMessage = "Successfully added";
+            await GetAuthors();
         }
         else
         {
@@ -212,7 +233,7 @@ else
             return;
         }
 
-        var request = new HttpRequestMessage(HttpMethod.Get, $"https://localhost:7161/api/authors/{searchAuthorId}");
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://localhost:7161/api/authors/common/{searchAuthorId}");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
         try
@@ -264,7 +285,7 @@ else
                 AuthorId = updateAuthorId.Value,
                 AuthorName = updateAuthorName,
             };
-        var request = new HttpRequestMessage(HttpMethod.Put, $"https://localhost:7161/api/authors/{updateAuthorId}");
+        var request = new HttpRequestMessage(HttpMethod.Put, $"https://localhost:7161/api/authors/admin-only/{updateAuthorId}");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         request.Content = JsonContent.Create(updateDto);
 
@@ -296,7 +317,7 @@ else
             return;
         }
 
-        var request = new HttpRequestMessage(HttpMethod.Delete, $"https://localhost:7161/api/authors/{deleteAuthorId}");
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"https://localhost:7161/api/authors/admin-only/{deleteAuthorId}");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
        
         var response = await Http.SendAsync(request);

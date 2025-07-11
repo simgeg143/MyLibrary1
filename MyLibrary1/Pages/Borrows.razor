@@ -2,7 +2,9 @@
 @inject HttpClient Http
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@using MyLibrary1.Helpers
 
+@if (role == "admin" || role == "user"){
 <h4>Find Borrow By Id</h4>
 
 <div class="input group mb-3">
@@ -28,8 +30,8 @@
         <img src="@($"https://localhost:7161/{foundBorrow.CoverImagePath}")" alt="Book Cover" />
         <div class="card-body" style="flex-grow:1; display:flex; flex-direction:column; justify-content:space-between;">
             <p class="card-title">Borrow: @foundBorrow.BorrowId</p>
-            <p class="card-text">Book: @foundBorrow.BookId</p>
-            <p class="card-text">Member: @foundBorrow.MemberId</p>
+            <p class="card-text">Book: @foundBorrow.Title</p>
+            <p class="card-text">Member: @foundBorrow.MemberName</p>
             <p class="card-text">Borrow Date: @foundBorrow.BorrowDate</p>
             <p class="card-text">Return Date: @foundBorrow.ReturnDate</p>
         </div>
@@ -76,7 +78,8 @@
 {
     <div class="alert alert-warning mt-2">@addMessage</div>
 }
-
+}
+@if (role == "admin"){
 <h4>Update Borrow</h4>
 
 <div class="input group  mb-3">
@@ -172,8 +175,8 @@ else
                     <img src="@($"https://localhost:7161/{borrow.CoverImagePath}")" alt="Book Cover" />
                     <div class="card-body" style="flex-grow:1; display:flex; flex-direction:column; justify-content:space-between;">
                         <h5 class="card-title">Borrow: @borrow.BorrowId</h5>
-                        <p class="card-text">Book: @borrow.BookId</p>
-                        <p class="card-text">Member: @borrow.MemberId</p>
+                        <p class="card-text">Book: @borrow.Title</p>
+                        <p class="card-text">Member: @borrow.MemberName</p>
                         <p class="card-text">Borrow Date: @borrow.BorrowDate</p>
                         <p class="card-text">Return Date: @borrow.ReturnDate</p>
                     </div>
@@ -182,8 +185,11 @@ else
         </div>
 }
 }
-
+}
 @code {
+    private string role;
+    private string username;
+    private bool isAuthenticated;
     private List<MemberDto> members = new();
     private List<BookDto> books = new();
     protected override async Task OnInitializedAsync()
@@ -198,12 +204,18 @@ else
         await GetMembers();
         await GetBooks();
         showBorrows = true;
+        if (!string.IsNullOrEmpty(token))
+        {
+            isAuthenticated = true;
+            role = TokenHelper.GetRoleFromToken(token);
+            username = TokenHelper.GetUsernameFromToken(token);
+        }
     }
     private async Task GetMembers()
     {
         var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
 
-        var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/members");
+        var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/members/common");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
         var response = await Http.SendAsync(request);
@@ -220,7 +232,7 @@ else
     private async Task GetBooks()
     {
         var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken"); 
-        var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/books");
+        var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/books/common");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
         var response = await Http.SendAsync(request);
@@ -261,7 +273,7 @@ else
                 Navigation.NavigateTo("/login");
                 return;
             }
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/borrows");
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7161/api/borrows/common");
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
             var response = await Http.SendAsync(request);
@@ -305,7 +317,7 @@ else
             ReturnDate = newReturnDate.Value,
         };
         try{
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7161/api/borrows");
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7161/api/borrows/common");
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
             request.Content = JsonContent.Create(newBorrowDto);
             var response = await Http.SendAsync(request);
@@ -314,6 +326,7 @@ else
             if (response.IsSuccessStatusCode)
             {
                 addMessage = "Successfully added.";
+                await GetBorrows();
             }
             else
             {
@@ -342,7 +355,7 @@ else
             Navigation.NavigateTo("/login");
             return;
         }
-        var request = new HttpRequestMessage(HttpMethod.Get, $"https://localhost:7161/api/borrows/{searchBorrowId}");
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://localhost:7161/api/borrows/common/{searchBorrowId}");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
         try
@@ -404,7 +417,7 @@ else
 
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Put, $"https://localhost:7161/api/borrows/{updateBorrowId}");
+            var request = new HttpRequestMessage(HttpMethod.Put, $"https://localhost:7161/api/borrows/admin-only/{updateBorrowId}");
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
             request.Content = JsonContent.Create(updateDto);
             var response = await Http.SendAsync(request);
@@ -443,7 +456,7 @@ else
             Navigation.NavigateTo("/login");
             return;
         }
-        var request = new HttpRequestMessage(HttpMethod.Delete, $"https://localhost:7161/api/borrows/{deleteBorrowId}");
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"https://localhost:7161/api/borrows/admin-only/{deleteBorrowId}");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
         var response = await Http.SendAsync(request);
@@ -476,7 +489,9 @@ else
     {
         public int BorrowId { get; set; }
         public int BookId { get; set; }
+        public string Title { get; set; }
         public int MemberId { get; set; }
+        public string MemberName { get; set; }
         public DateTime BorrowDate { get; set; }
         public DateTime ReturnDate { get; set; }
         public string? CoverImagePath { get; set; }

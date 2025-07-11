@@ -24,6 +24,7 @@
 }
 
 @code {
+    private LoginDto loginModel = new();
     private string username;
     private string password;
     private string errorMessage;
@@ -52,10 +53,10 @@
 
                     if(AuthProvider is CustomAuthStateProvider customProvider)
                     {
-                        customProvider.NotifyUserAuthentication(username);
+                        customProvider.NotifyUserAuthentication(token.Token);
                     }
 
-                    NavigationManager.NavigateTo("/");
+                    NavigationManager.NavigateTo("/",forceLoad: true);
                 }
                 else
                 {
@@ -76,5 +77,10 @@
     public class TokenResponse
     {
         public string Token { get; set; }
+    }
+    public class LoginDto
+    {
+        public string Username { get; set; }
+        public string Password { get; set; }
     }
 }
