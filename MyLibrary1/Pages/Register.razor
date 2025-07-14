@@ -1,0 +1,65 @@
+﻿@page "/register"
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+@using System.Net.Http.Json
+
+<h3>Register</h3>
+
+<div class="input group mb-3">
+    <input type="text" placeholder="Username" @bind="registerModel.Username" class="form-control" />
+</div>
+<div class="input group mb-3">
+    <input type="password" placeholder="Password" @bind="registerModel.Password" class="form-control"/>
+</div>
+<div class="input group mb-3">
+    <select  class="form-select" @bind="registerModel.Role">
+        <option value="">Select Role</option>
+        <option value="user">User</option>
+    </select>
+</div>
+
+<button class="btn btn-primary" @onclick = "RegisterUser">Register</button>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-info mt-2">@errorMessage</div>
+}
+@code {
+    private string errorMessage;
+    private RegisterDto registerModel = new();
+
+    private async Task RegisterUser()
+    {
+        errorMessage = "";
+        try
+        {
+            var response = await Http.PostAsJsonAsync("https://localhost:7161/api/Authorization/register", registerModel);
+            if (response.IsSuccessStatusCode)
+            {
+                errorMessage = $"Registration successful! You can now log in.";
+                StateHasChanged();
+                await Task.Delay(2000); 
+                Navigation.NavigateTo("/login");
+            }
+            else
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Registration failed: {content}";
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+    public class RegisterDto
+    {
+        public string? Username { get; set; }
+        public string? Password { get; set; }
+        public string? Role { get; set; } = "user";
+    }
+}

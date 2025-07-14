@@ -14,7 +14,7 @@
         {
             @foreach(var borrow in borrows)
             {
-                <option value="@borrow.BorrowId">@borrow.BorrowId</option>
+                <option value="@borrow.BorrowId">@borrow.BorrowId-@borrow.MemberName</option>
             }
         }
         </select>
