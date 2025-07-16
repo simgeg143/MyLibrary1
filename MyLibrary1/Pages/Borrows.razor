@@ -8,35 +8,40 @@
 <h4>Find Borrow By Id</h4>
 
 <div class="input group mb-3">
-    <select class="form-select" @bind="searchBorrowId">
-        <option value="">Select Borrow</option>
-        @if (borrows != null)
+    <select class="form-select" @bind="selectMemberName">
+        <option value="">Select Member</option>
+        @if (members != null)
         {
-            @foreach(var borrow in borrows)
+            @foreach(var member in members)
             {
-                <option value="@borrow.BorrowId">@borrow.BorrowId-@borrow.MemberName</option>
+                <option value="@member.MemberName">@member.MemberName</option>
             }
         }
         </select>
-        <button class="btn btn-info" @onclick="GetBorrowById">Search</button>
+        <button class="btn btn-info" @onclick="GetBorrowByMemberName">Search</button>
 </div>
 @if (!string.IsNullOrEmpty(getMessage))
 {
-    <div class="alert alert-warning">@getMessage</div>
-}
-@if (foundBorrow != null)
+        <div class="alert alert-warning">@getMessage</div>
+    
+    @if (foundBorrow != null && foundBorrow.Count > 0)
 {
-    <div class="card" style="width:180px; display:flex; flex-direction:column;">
-        <img src="@($"https://localhost:7161/{foundBorrow.CoverImagePath}")" alt="Book Cover" />
-        <div class="card-body" style="flex-grow:1; display:flex; flex-direction:column; justify-content:space-between;">
-            <p class="card-title">Borrow: @foundBorrow.BorrowId</p>
-            <p class="card-text">Book: @foundBorrow.Title</p>
-            <p class="card-text">Member: @foundBorrow.MemberName</p>
-            <p class="card-text">Borrow Date: @foundBorrow.BorrowDate</p>
-            <p class="card-text">Return Date: @foundBorrow.ReturnDate</p>
-        </div>
+        @foreach (var borrow in foundBorrow)
+        {
+            <div class="card" style="width:180px; display:flex; flex-direction:column;">
+            <img src="@($"https://localhost:7161/{borrow.CoverImagePath}")" alt="Book Cover" />
+                <div class="card-body" style="flex-grow:1; display:flex; flex-direction:column; justify-content:space-between;">
+                    <p class="card-title">Borrow: @borrow.BorrowId</p>
+            <p class="card-text">Book: @borrow.Title</p>
+            <p class="card-text">Member: @borrow.MemberName</p>
+            <p class="card-text">Borrow Date: @borrow.BorrowDate</p>
+            <p class="card-text">Return Date: @borrow.ReturnDate</p>
+        </div>        
     </div>
+    }
+    }
 }
+
 
 <h4> Add New Borrow</h4>
 
@@ -89,7 +94,7 @@
         {
             @foreach (var borrow in borrows)
             {
-                <option value="@borrow.BorrowId">@borrow.BorrowId</option>
+                <option value="@borrow.BorrowId">@borrow.BorrowId-@borrow.MemberName</option>
             }
         }
     </select>
@@ -142,7 +147,7 @@
         {
             @foreach (var borrow in borrows)
             {
-                <option value="@borrow.BorrowId">@borrow.BorrowId</option>
+                <option value="@borrow.BorrowId">@borrow.BorrowId-@borrow.MemberName</option>
             }
         }
     </select>
@@ -340,11 +345,11 @@ else
         }
     }
 
-    private int? searchBorrowId;
-    private BorrowDto? foundBorrow;
+    private string? selectMemberName;
+    private List<BorrowDto> foundBorrow = new();
     private string getMessage;
 
-    private async Task GetBorrowById()
+    private async Task GetBorrowByMemberName()
     {
         getMessage = "";
         foundBorrow = null;
@@ -354,34 +359,44 @@ else
         {
             Navigation.NavigateTo("/login");
             return;
-        }
-        var request = new HttpRequestMessage(HttpMethod.Get, $"https://localhost:7161/api/borrows/common/{searchBorrowId}");
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        }     
 
         try
         {
+            var request = new HttpRequestMessage(HttpMethod.Get, $"https://localhost:7161/api/borrows/common/member/{selectMemberName}");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
             var response = await Http.SendAsync(request);
             getMessage = "";
             if (response.IsSuccessStatusCode)
             {
-                foundBorrow = await response.Content.ReadFromJsonAsync<BorrowDto>();
-                getMessage = "Borrow found successfully.";
+                foundBorrow = await response.Content.ReadFromJsonAsync<List<BorrowDto>>();
+                if (foundBorrow != null && foundBorrow.Count > 0)
+                {                   
+                    getMessage = "Borrows found successfully.";
+                }
+                else
+                {
+                    getMessage = "Borrows not found.";
+                    foundBorrow = new(); 
+                }
             }
+            
             else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                getMessage = "Borrow not found.";
-                foundBorrow = null;
+                getMessage = "Borrows not found.";
+                foundBorrow = new();
                 Console.WriteLine("Borrow not found.");
             }
             else
             {
-                getMessage = "Error occured while fetching the borrow";
-                foundBorrow = null;
+                getMessage = "Error occured while fetching the borrows";
+                foundBorrow = new();
             }
         }catch(Exception ex)
         {
             getMessage = "Failed";
             Console.WriteLine("Exception" + ex.Message);
+            foundBorrow = new();
         }
 
     }
